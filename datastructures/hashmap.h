@@ -8,6 +8,19 @@
 
 #include "vec.h"
 
+/**
+ * Utility function to hash strings
+ */
+size_t string_hasher(const char* str) 
+{
+    size_t h = 0, p = 257, m = 1e9+9, pow = 1;
+    for (char* c = (char*)str; *c; c++) {
+        h = (h + pow*(*c)) % m;
+        pow = (pow*p) % m;
+    }
+    return h;
+}
+
 // constants taken from openJDK HashMap.java
 #ifndef _HASHMAP_MIN_BUCKET_ARRAY_SIZE
 #define _HASHMAP_MIN_BUCKET_ARRAY_SIZE 16 
@@ -32,7 +45,7 @@
  * For memory saving this contains `BucketEntry*` values,                                                          *
  * however the key-value pairs can be retrieved from the `entry` field in each BucketEntry                         *
  *                                                                                                                 *
- * @param HASHMAP_NAME name of containing struct and prefix of generated functions                                 *
+ * @param HASHMAP_NAME name of owner struct and prefix of generated functions                                      *
  *                                                                                                                 *
  * @param HASHMAP_KEY_TYPE stored in place and not separately allocated.                                           *
  *    - This means that any array-type keys should be wrapped in a struct.                                         *
@@ -41,12 +54,15 @@
  *                                                                                                                 *
  * @param HASHMAP_VALUE_TYPE type of entries, for a Set with no entries, simply pass a struct with no fields.      *
  *                                                                                                                 *
- * @param HASHMAP_HASH_FUNC function or macro to hash keys, must follow typical rules for hashing:                 *
+ * @param HASHMAP_HASH_FUNC function or macro to hash keys                                                         * 
+ *      signature: `size_t (*)(const HASHMAP_KEY_TYPE*)`                                                           *
+ *    must follow typical rules for hashing:                                                                       *
  *    - All keys that are equal according to `HASHMAP_KEY_EQ_FUNC` must also hash to the same value                *
  *    - The same key should always produce the same hash                                                           *
  *    - Two unequal keys may hash to the same value                                                                *
  *                                                                                                                 *
  * @param HASHMAP_KEY_EQ_FUNC function or macro to compare equality of two keys.                                   *
+ *    signature: `bool (*)(const HASHMAP_KEY_TYPE*, const HASHMAP_KEY_TYPE*)`                                      *
  *    Any keys that are found to be equal *MUST* also hash to the same value                                       *
  *******************************************************************************************************************/
 #define HASHMAP_DEFINE(HASHMAP_NAME, HASHMAP_KEY_TYPE, HASHMAP_VALUE_TYPE, HASHMAP_HASH_FUNC, HASHMAP_KEY_EQ_FUNC) \
@@ -94,7 +110,7 @@
      * Finds the corresponding entry (key-value pair) searching according to the key
      *
      * @param insert If an entry does not already exist in the HashMap it will be inserted if this is set to true.
-     *    In case of a new insertion, the value is not set and needs to be set by the caller
+     *    In case of a new insertion, the value is not set and needs to be set by the caller afterwards
      *    If it is false and the entry does not exist this function will return NULL
      ***************************************************************************************************************/ \
     HASHMAP_NAME##Entry* HASHMAP_NAME##_search(HASHMAP_NAME* map, const HASHMAP_KEY_TYPE* key, bool insert) \
@@ -114,7 +130,7 @@
             \
             for (size_t i = 0; i < entries.size; i++) { \
                 _##HASHMAP_NAME##BucketEntry* entry = entries._arr[i]; \
-                HASHMAP_NAME##_search(map, &(entry->entry.key), true)->value = entry->entry.value; \
+                HASHMAP_NAME##_search(map, (const HASHMAP_KEY_TYPE*) &(entry->entry.key), true)->value = entry->entry.value; \
                 free(entry); \
             } \
             free(entries._arr); \
@@ -129,7 +145,7 @@
             _##HASHMAP_NAME##BucketEntry* entry = calloc(1, sizeof(_##HASHMAP_NAME##BucketEntry)); \
             assert(entry); \
             *entry_holder = entry; \
-            entry->entry.key = *key; \
+            entry->entry.key = (HASHMAP_KEY_TYPE) *key; \
             HASHMAP_NAME##EntriesVec_push(&(map->all_entries), entry); \
             map->size++; \
         } \
