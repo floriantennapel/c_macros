@@ -20,12 +20,6 @@ size_t string_hasher(const char* str)
     return h;
 }
 
-typedef struct 
-{
-    int a;
-    long double b;
-} Key;
-
 /**********************************************************************************
  * Utility function to hash byte arrays
  * Can for instance be used to hash structs by reinterpreting them as byte-arrays
@@ -37,8 +31,6 @@ size_t byte_hasher(const char* byte_array, size_t n_bytes)
         h = (h + pow*(byte_array[i])) % m;
         pow = (pow*p) % m;
     }
-    Key* asKey = (Key*) byte_array;
-    printf("(%d %Lf) hashed to %lu\n",asKey->a, asKey->b, h);
     return h;
 }
 
