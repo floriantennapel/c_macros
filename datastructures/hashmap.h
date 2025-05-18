@@ -106,6 +106,22 @@ size_t string_hasher(const char* str)
     } \
     \
     \
+    /****************************************************
+     * Do not use this function
+     *
+     * Finds the place where an entry is/can be stored.
+     ****************************************************/ \
+    _##HASHMAP_NAME##BucketEntry** _##HASHMAP_NAME##_locate_entry_holder(HASHMAP_NAME* map, const HASHMAP_KEY_TYPE* key) \
+    { \
+        assert(map); \
+        assert(key); \
+        size_t hash = (HASHMAP_HASH_FUNC(key)) % map->_n_buckets; \
+        _##HASHMAP_NAME##BucketEntry** entry_holder = map->_buckets + hash; \
+        while (*entry_holder && !(HASHMAP_KEY_EQ_FUNC(key, &((*entry_holder)->entry.key)))) \
+            entry_holder = &((*entry_holder)->next); \
+        return entry_holder; \
+    } \
+    \
     /***************************************************************************************************************
      * Finds the corresponding entry (key-value pair) searching according to the key
      *
@@ -136,11 +152,7 @@ size_t string_hasher(const char* str)
             free(entries._arr); \
         } \
         \
-        size_t hash = (HASHMAP_HASH_FUNC(key)) % map->_n_buckets; \
-        _##HASHMAP_NAME##BucketEntry** entry_holder = map->_buckets + hash; \
-        while (*entry_holder && !(HASHMAP_KEY_EQ_FUNC(key, &((*entry_holder)->entry.key)))) \
-            entry_holder = &((*entry_holder)->next); \
-        \
+        _##HASHMAP_NAME##BucketEntry** entry_holder = _##HASHMAP_NAME##_locate_entry_holder(map, key); \
         if (insert && !*entry_holder) { \
             _##HASHMAP_NAME##BucketEntry* entry = calloc(1, sizeof(_##HASHMAP_NAME##BucketEntry)); \
             assert(entry); \
@@ -171,7 +183,7 @@ size_t string_hasher(const char* str)
     bool HASHMAP_NAME##_contains(const HASHMAP_NAME* map, const HASHMAP_KEY_TYPE* key) \
     { \
         return HASHMAP_NAME##_search((HASHMAP_NAME*) map, key, false) != NULL; \
-    }\
+    } \
     \
     \
     /**************************************************
@@ -185,8 +197,19 @@ size_t string_hasher(const char* str)
         } \
         free(map->_buckets); \
         free(map->all_entries._arr); \
+    } \
+    \
+    void HASHMAP_NAME##_remove(HASHMAP_NAME* map, const HASHMAP_KEY_TYPE* key) \
+    { \
+        assert(map); \
+        assert(key); \
+        _##HASHMAP_NAME##BucketEntry** entry_holder = _##HASHMAP_NAME##_locate_entry_holder(map, key); \
+        if (!*entry_holder) \
+            return; \
+        _##HASHMAP_NAME##BucketEntry* next = (*entry_holder)->next; \
+        free(*entry_holder); \
+        (*entry_holder) = next; \
+        (map->size)--; \
     }
-
-    //todo remove
 
 #endif
