@@ -1,14 +1,15 @@
 #ifndef HASHMAP_H
 #define HASHMAP_H
 
+#include <stdio.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <assert.h>
 #include <stdbool.h>
 
-/**
+/************************************
  * Utility function to hash strings
- */
+ ************************************/
 size_t string_hasher(const char* str) 
 {
     size_t h = 0, p = 257, m = 1e9+9, pow = 1;
@@ -16,6 +17,28 @@ size_t string_hasher(const char* str)
         h = (h + pow*(*c)) % m;
         pow = (pow*p) % m;
     }
+    return h;
+}
+
+typedef struct 
+{
+    int a;
+    long double b;
+} Key;
+
+/**********************************************************************************
+ * Utility function to hash byte arrays
+ * Can for instance be used to hash structs by reinterpreting them as byte-arrays
+ **********************************************************************************/
+size_t byte_hasher(const char* byte_array, size_t n_bytes) 
+{
+    size_t h = 0, p = 257, m = 1e9+9, pow = 1;
+    for (size_t i = 0; i < n_bytes; i++) {
+        h = (h + pow*(byte_array[i])) % m;
+        pow = (pow*p) % m;
+    }
+    Key* asKey = (Key*) byte_array;
+    printf("(%d %Lf) hashed to %lu\n",asKey->a, asKey->b, h);
     return h;
 }
 
