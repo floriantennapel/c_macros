@@ -6,8 +6,6 @@
 #include <assert.h>
 #include <stdbool.h>
 
-#include "vec.h"
-
 /**
  * Utility function to hash strings
  */
@@ -29,7 +27,7 @@ size_t string_hasher(const char* str)
 #define _HASHMAP_MAX_BUCKET_ARRAY_SIZE (1 << 30)
 
 #ifndef _HASHMAP_LOAD_FACTOR
-#define _HASHMAP_LOAD_FACTOR 0.75 
+#define _HASHMAP_LOAD_FACTOR 0.6
 #endif
 
 /*******************************************************************************************************************
@@ -41,9 +39,8 @@ size_t string_hasher(const char* str)
  * The load factor and minimum capacity can be changed by setting                                                  *
  * the corresponding macros before including this header                                                           *
  *                                                                                                                 *
- * Key-Value pairs can iterated through using the all_entries Vector.                                              *
- * For memory saving this contains `BucketEntry*` values,                                                          *
- * however the key-value pairs can be retrieved from the `entry` field in each BucketEntry                         *
+ * _HASHMAP_LOAD_FACTOR should however not be set to any values higheer than 0.75                                  *
+ * as this will severly impact performance                                                                         *
  *                                                                                                                 *
  * @param HASHMAP_NAME name of owner struct and prefix of generated functions                                      *
  *                                                                                                                 *
@@ -72,19 +69,10 @@ size_t string_hasher(const char* str)
         HASHMAP_VALUE_TYPE value; \
     } HASHMAP_NAME##Entry; \
     \
-    typedef struct _##HASHMAP_NAME##BucketEntry \
-    { \
-        HASHMAP_NAME##Entry entry; \
-        struct _##HASHMAP_NAME##BucketEntry* next; \
-    } _##HASHMAP_NAME##BucketEntry; \
-    \
-    VEC_DEFINE(HASHMAP_NAME##EntriesVec, _##HASHMAP_NAME##BucketEntry*) \
-    \
     typedef struct \
     { \
         size_t size; \
-        HASHMAP_NAME##EntriesVec all_entries; /* allows for efficient iteration over all entries */ \
-        _##HASHMAP_NAME##BucketEntry** _buckets; \
+        HASHMAP_NAME##Entry** _buckets; \
         size_t _n_buckets; \
     } HASHMAP_NAME; \
     \
@@ -99,7 +87,7 @@ size_t string_hasher(const char* str)
     { \
         size_t capacity = _HASHMAP_MIN_BUCKET_ARRAY_SIZE; \
         for (; capacity < initial_capacity && capacity < _HASHMAP_MAX_BUCKET_ARRAY_SIZE; capacity <<= 1); \
-        HASHMAP_NAME ret = {0, HASHMAP_NAME##EntriesVec_new(0), NULL, capacity}; \
+        HASHMAP_NAME ret = {0, NULL, capacity}; \
         ret._buckets = calloc(capacity, sizeof(void*)); \
         assert(ret._buckets); \
         return ret; \
@@ -111,15 +99,18 @@ size_t string_hasher(const char* str)
      *
      * Finds the place where an entry is/can be stored.
      ****************************************************/ \
-    _##HASHMAP_NAME##BucketEntry** _##HASHMAP_NAME##_locate_entry_holder(HASHMAP_NAME* map, const HASHMAP_KEY_TYPE* key) \
+    HASHMAP_NAME##Entry** _##HASHMAP_NAME##_locate_entry_holder(HASHMAP_NAME* map, const HASHMAP_KEY_TYPE* key) \
     { \
         assert(map); \
         assert(key); \
         size_t hash = (HASHMAP_HASH_FUNC(key)) % map->_n_buckets; \
-        _##HASHMAP_NAME##BucketEntry** entry_holder = map->_buckets + hash; \
-        while (*entry_holder && !(HASHMAP_KEY_EQ_FUNC(key, &((*entry_holder)->entry.key)))) \
-            entry_holder = &((*entry_holder)->next); \
-        return entry_holder; \
+        size_t ind = hash; \
+        for (;;) { /*todo allow previously removed buckets to be reused */\
+            if (!map->_buckets[ind] || (HASHMAP_KEY_EQ_FUNC((key), ((const HASHMAP_KEY_TYPE*) &(map->_buckets[ind]->key))))) \
+                break; \
+            ind = (ind + 1) % map->_n_buckets; \
+        } \
+        return map->_buckets + ind; \
     } \
     \
     /***************************************************************************************************************
@@ -135,36 +126,31 @@ size_t string_hasher(const char* str)
         assert(key); \
         \
         /* resizing bucket array and rehashing all entries */ \
-        if ((map->size) / (double) map->_n_buckets > _HASHMAP_LOAD_FACTOR) { \
-            HASHMAP_NAME##EntriesVec entries = map->all_entries; \
-            map->all_entries = HASHMAP_NAME##EntriesVec_new(0); \
-            map->size = 0; \
-            free(map->_buckets); \
+        if ((map->size) / (double) map->_n_buckets >= _HASHMAP_LOAD_FACTOR) { \
+            size_t old_n_buckets = map->_n_buckets; \
+            HASHMAP_NAME##Entry** old_buckets = map->_buckets; \
             map->_n_buckets *= 2; \
             map->_buckets = calloc(map->_n_buckets, sizeof(void*)); \
             assert(map->_buckets); \
             \
-            for (size_t i = 0; i < entries.size; i++) { \
-                _##HASHMAP_NAME##BucketEntry* entry = entries._arr[i]; \
-                HASHMAP_NAME##_search(map, (const HASHMAP_KEY_TYPE*) &(entry->entry.key), true)->value = entry->entry.value; \
-                free(entry); \
+            for (size_t i = 0; i < old_n_buckets; i++) { \
+                HASHMAP_NAME##Entry* entry = old_buckets[i]; \
+                if (entry) \
+                    *(_##HASHMAP_NAME##_locate_entry_holder(map, (const HASHMAP_KEY_TYPE*) &(entry->key))) = entry; \
             } \
-            free(entries._arr); \
+            free(old_buckets); \
         } \
         \
-        _##HASHMAP_NAME##BucketEntry** entry_holder = _##HASHMAP_NAME##_locate_entry_holder(map, key); \
+        HASHMAP_NAME##Entry** entry_holder = _##HASHMAP_NAME##_locate_entry_holder(map, key); \
         if (insert && !*entry_holder) { \
-            _##HASHMAP_NAME##BucketEntry* entry = calloc(1, sizeof(_##HASHMAP_NAME##BucketEntry)); \
+            HASHMAP_NAME##Entry* entry = calloc(1, sizeof(HASHMAP_NAME##Entry)); \
             assert(entry); \
             *entry_holder = entry; \
-            entry->entry.key = (HASHMAP_KEY_TYPE) *key; \
-            HASHMAP_NAME##EntriesVec_push(&(map->all_entries), entry); \
+            entry->key = (HASHMAP_KEY_TYPE) *key; \
             map->size++; \
         } \
         \
-        if (!*entry_holder) \
-            return NULL; \
-        return &((*entry_holder)->entry); \
+        return *entry_holder; \
     } \
     \
     \
@@ -192,24 +178,40 @@ size_t string_hasher(const char* str)
     ***************************************************/ \
     void HASHMAP_NAME##_free(HASHMAP_NAME* map) \
     { \
-        for (size_t i = 0; i < map->all_entries.size; i++) { \
-            free(map->all_entries._arr[i]); \
+        for (size_t i = 0; i < map->_n_buckets; i++) { \
+            if (map->_buckets[i]) \
+                free(map->_buckets[i]); \
         } \
         free(map->_buckets); \
-        free(map->all_entries._arr); \
     } \
     \
+    \
+    /**************************************************************************
+     * Removes and deallocates an entry from the HashMap 
+     *
+     * Other entries might be rehashed, 
+     * so take care to not call this function while iterating over `_buckets`
+     **************************************************************************/ \
     void HASHMAP_NAME##_remove(HASHMAP_NAME* map, const HASHMAP_KEY_TYPE* key) \
     { \
         assert(map); \
         assert(key); \
-        _##HASHMAP_NAME##BucketEntry** entry_holder = _##HASHMAP_NAME##_locate_entry_holder(map, key); \
+        HASHMAP_NAME##Entry** entry_holder = _##HASHMAP_NAME##_locate_entry_holder(map, key); \
         if (!*entry_holder) \
             return; \
-        _##HASHMAP_NAME##BucketEntry* next = (*entry_holder)->next; \
         free(*entry_holder); \
-        (*entry_holder) = next; \
+        *entry_holder = NULL; \
         (map->size)--; \
+        \
+        /* rehashing possibly colided values */ \
+        size_t ind = entry_holder - map->_buckets+1; \
+        for (;map->_buckets[ind]; ind = (ind + 1) % map->_n_buckets) { \
+            if (!map->_buckets[ind]) \
+                continue; \
+            HASHMAP_NAME##Entry* entry = map->_buckets[ind]; \
+            map->_buckets[ind] = NULL; \
+            *(_##HASHMAP_NAME##_locate_entry_holder(map, (const HASHMAP_KEY_TYPE*) &(entry->key))) = entry; \
+        } \
     }
 
 #endif
