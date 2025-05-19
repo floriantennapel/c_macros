@@ -4,7 +4,7 @@
 /**************************
  * A generic hashable tuple
  *
- * Requires c20 or newer
+ * Requires C20 or newer
  **************************/
 
 #include <string.h>
