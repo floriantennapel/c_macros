@@ -33,6 +33,9 @@ size_t byte_hasher(const char* byte_array, size_t n_bytes)
     return h;
 }
 
+typedef struct
+{} HASHMAP_NO_VALUE;
+
 // constants taken from openJDK HashMap.java
 #ifndef _HASHMAP_MIN_BUCKET_ARRAY_SIZE
 #define _HASHMAP_MIN_BUCKET_ARRAY_SIZE 16 
@@ -63,7 +66,7 @@ size_t byte_hasher(const char* byte_array, size_t n_bytes)
  *    For instance given char* keys with a known max length of 50, use `struct {char chars[50];}` as key-type      *
  *    - It is also possible to use pointers as keys, they however need to be stored outside of the HashMap itself  *
  *                                                                                                                 *
- * @param HASHMAP_VALUE_TYPE type of entries, for a Set with no entries, simply pass a struct with no fields.      *
+ * @param HASHMAP_VALUE_TYPE type of entries, for a Set with no entries, simply pass HASHMAP_NO_VALUE.             *
  *                                                                                                                 *
  * @param HASHMAP_HASH_FUNC function or macro to hash keys                                                         * 
  *      signature: `size_t (*)(const HASHMAP_KEY_TYPE*)`                                                           *
@@ -120,7 +123,7 @@ size_t byte_hasher(const char* byte_array, size_t n_bytes)
         assert(key); \
         size_t hash = (HASHMAP_HASH_FUNC(key)) % map->_n_buckets; \
         size_t ind = hash; \
-        for (;;) { /*todo allow previously removed buckets to be reused */\
+        for (;;) { \
             if (!map->_buckets[ind] || (HASHMAP_KEY_EQ_FUNC((key), ((const HASHMAP_KEY_TYPE*) &(map->_buckets[ind]->key))))) \
                 break; \
             ind = (ind + 1) % map->_n_buckets; \
