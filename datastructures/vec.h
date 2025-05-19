@@ -76,5 +76,32 @@
         } \
         return ret; \
     } \
+    \
+    \
+    /************************************
+    * Deallocates memory used by vector
+    *
+    * Do not use after this point
+    *************************************/ \
+    void VEC_NAME##_free(VEC_NAME* vec) \
+    { \
+        assert(vec); \
+        free(vec->arr); \
+    } \
+    \
+    \
+    /*********************************
+    * Removes all elements in vector
+    *
+    * Safe to use after this
+    **********************************/ \
+    void VEC_NAME##_clear(VEC_NAME* vec) \
+    { \
+        assert(vec); \
+        vec->size = 0; \
+        vec->_arr_cap = 1; \
+        vec->arr = realloc(vec->arr, sizeof(VEC_VAL_TYPE)); \
+        assert(vec->arr); \
+    }
 
 #endif
