@@ -9,7 +9,7 @@
 * Generates functions for a new Vec datastructure
 *
 * Functions to access and set elements of the are not defined, 
-* this should be done using the underlying _arr field
+* this should be done using the underlying arr field
 *
 * Functions with linear runtime, like insertion and removal are also not defined.
 * Use another datastructure, or add the methods later if this is needed.
@@ -20,7 +20,7 @@
 #define VEC_DEFINE(VEC_NAME, VEC_VAL_TYPE) \
     typedef struct \
     { \
-        VEC_VAL_TYPE* _arr; \
+        VEC_VAL_TYPE* arr; \
         size_t _arr_cap; \
         size_t size; \
     } VEC_NAME; \
@@ -52,10 +52,10 @@
         assert(vec); \
         if (vec->size == vec->_arr_cap) { \
             vec->_arr_cap *= 2; \
-            vec->_arr = realloc(vec->_arr, vec->_arr_cap * sizeof(VEC_VAL_TYPE)); \
-            assert(vec->_arr); \
+            vec->arr = realloc(vec->arr, vec->_arr_cap * sizeof(VEC_VAL_TYPE)); \
+            assert(vec->arr); \
         } \
-        vec->_arr[(vec->size)++] = value; \
+        vec->arr[(vec->size)++] = value; \
     } \
     \
     \
@@ -68,11 +68,11 @@
     { \
         assert(vec); \
         assert(vec->size); \
-        VEC_VAL_TYPE ret = vec->_arr[--(vec->size)]; \
+        VEC_VAL_TYPE ret = vec->arr[--(vec->size)]; \
         if (vec->size < vec->_arr_cap / 4) { \
             vec->_arr_cap /= 2; \
-            vec->_arr = realloc(vec->_arr, vec->_arr_cap * sizeof(VEC_VAL_TYPE)); \
-            assert(vec->_arr); \
+            vec->arr = realloc(vec->arr, vec->_arr_cap * sizeof(VEC_VAL_TYPE)); \
+            assert(vec->arr); \
         } \
         return ret; \
     } \

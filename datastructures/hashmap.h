@@ -1,7 +1,6 @@
 #ifndef HASHMAP_H
 #define HASHMAP_H
 
-#include <stdio.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -100,6 +99,7 @@ size_t byte_hasher(const char* byte_array, size_t n_bytes)
      ********************************************************************************************************************/ \
     HASHMAP_NAME HASHMAP_NAME##_new(size_t initial_capacity) \
     { \
+        initial_capacity /= _HASHMAP_LOAD_FACTOR; \
         size_t capacity = _HASHMAP_MIN_BUCKET_ARRAY_SIZE; \
         for (; capacity < initial_capacity && capacity < _HASHMAP_MAX_BUCKET_ARRAY_SIZE; capacity <<= 1); \
         HASHMAP_NAME ret = {0, NULL, capacity}; \
