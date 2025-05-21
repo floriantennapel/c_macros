@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <assert.h>
 #include <stdlib.h>
+#include <string.h>
 
 /*****************************************************************************
 * Generates functions for a new Queue datastructure
@@ -12,26 +13,55 @@
 * @param QUEUE_VAL_TYPE type stored in queue
 ******************************************************************************/
 #define QUEUE_DEFINE(QUEUE_NAME, QUEUE_VAL_TYPE) \
-    struct _##QUEUE_NAME##_NODE \
-    { \
-        QUEUE_VAL_TYPE value; \
-        struct _##QUEUE_NAME##_NODE* next; \
-    } _##QUEUE_NAME##_NODE; \
-    \
     typedef struct \
     { \
-        struct _##QUEUE_NAME##_NODE* head; \
-        struct _##QUEUE_NAME##_NODE* tail; \
-        size_t size; \
+        size_t size, _capacity, _head, _tail; \
+        QUEUE_VAL_TYPE* _arr; \
     } QUEUE_NAME; \
     \
     \
-    /***************************
+    /***********************************************************************
     * Makes a new empty queue
-    ****************************/ \
-    QUEUE_NAME QUEUE_NAME##_new() \
+    *
+    * @param initial_capacity should be set to expected number of entries, 
+    *   but any value is fine, as it will resize as needed
+    ************************************************************************/ \
+    QUEUE_NAME QUEUE_NAME##_new(size_t initial_capacity) \
     { \
-        return (QUEUE_NAME) {NULL, NULL, 0}; \
+        size_t capacity = 1; \
+        for (; capacity <= initial_capacity; capacity <<= 1); \
+        QUEUE_NAME ret = {0, capacity, 0, 0, NULL}; \
+        ret._arr = malloc(sizeof(QUEUE_VAL_TYPE) * capacity); \
+        assert(ret._arr); \
+        return ret; \
+    } \
+    \
+    \
+    /**************************************
+     * Do not use this function
+     *
+     * Resizes underlying array if needed 
+     **************************************/ \
+    void _##QUEUE_NAME##_resize(QUEUE_NAME* q, size_t new_capacity) \
+    { \
+        QUEUE_VAL_TYPE* old_arr = q->_arr; \
+        size_t old_cap = q->_capacity; \
+        q->_capacity = new_capacity; \
+        q->_arr = malloc(sizeof(QUEUE_VAL_TYPE) * q->_capacity); \
+        assert(q->_arr); \
+        \
+        QUEUE_VAL_TYPE* head_ptr = old_arr+q->_head; \
+        if (q->_tail <= q->_head) { \
+            size_t back_bytes = old_cap - q->_head; \
+            memcpy(q->_arr, head_ptr, sizeof(QUEUE_VAL_TYPE) * back_bytes); \
+            memcpy(q->_arr + back_bytes, old_arr, sizeof(QUEUE_VAL_TYPE) * (q->size - back_bytes)); \
+        } else { \
+            memcpy(q->_arr, head_ptr, sizeof(QUEUE_VAL_TYPE) * q->size); \
+        } \
+        q->_head = 0; \
+        q->_tail = q->size; \
+        \
+        free(old_arr); \
     } \
     \
     \
@@ -41,15 +71,11 @@
     void QUEUE_NAME##_push(QUEUE_NAME* q, QUEUE_VAL_TYPE value) \
     { \
         assert(q); \
-        struct _##QUEUE_NAME##_NODE* new_ptr = malloc(sizeof(_##QUEUE_NAME##_NODE)); \
-        assert(new_ptr); \
-        *new_ptr = (struct _##QUEUE_NAME##_NODE) {value, NULL}; \
-        if (!q->tail) \
-            q->head = new_ptr; \
-        else \
-            q->tail->next = new_ptr; \
-        q->tail = new_ptr; \
-        ++(q->size); \
+        if (q->size == q->_capacity) \
+            _##QUEUE_NAME##_resize(q, q->_capacity * 2); \
+        (q->size)++; \
+        q->_arr[q->_tail] = value; \
+        q->_tail = (q->_tail + 1) % q->_capacity; \
     } \
     \
     \
@@ -60,11 +86,10 @@
     { \
         assert(q); \
         assert((q->size)--); \
-        struct _##QUEUE_NAME##_NODE* tmp = q->head; \
-        q->head = tmp->next; \
-        QUEUE_VAL_TYPE ret = tmp->value; \
-        assert(tmp); \
-        free(tmp); \
+        QUEUE_VAL_TYPE ret = q->_arr[q->_head]; \
+        q->_head = (q->_head + 1) % q->_capacity; \
+        if (q->size < q->_capacity / 4. && q->size > 16) \
+            _##QUEUE_NAME##_resize(q, q->_capacity / 2); \
         return ret; \
     }
 
