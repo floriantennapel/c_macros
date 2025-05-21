@@ -131,6 +131,29 @@ typedef struct
         return map->_buckets + ind; \
     } \
     \
+    \
+    /*************************************************
+     * Do not use this function
+     *
+     * resizes bucket array and rehashes all entries
+     *************************************************/ \
+    void _##HASHMAP_NAME##_resize(HASHMAP_NAME* map, size_t new_size) \
+    { \
+        size_t old_n_buckets = map->_n_buckets; \
+        HASHMAP_NAME##Entry** old_buckets = map->_buckets; \
+        map->_n_buckets = new_size; \
+        map->_buckets = calloc(map->_n_buckets, sizeof(void*)); \
+        assert(map->_buckets); \
+        \
+        for (size_t i = 0; i < old_n_buckets; i++) { \
+            HASHMAP_NAME##Entry* entry = old_buckets[i]; \
+            if (entry) \
+                *(_##HASHMAP_NAME##_locate_entry_holder(map, (const HASHMAP_KEY_TYPE*) &(entry->key))) = entry; \
+        } \
+        free(old_buckets); \
+    } \
+    \
+    \
     /***************************************************************************************************************
      * Finds the corresponding entry (key-value pair) searching according to the key
      *
@@ -143,21 +166,8 @@ typedef struct
         assert(map); \
         assert(key); \
         \
-        /* resizing bucket array and rehashing all entries */ \
-        if ((map->size) / (double) map->_n_buckets >= _HASHMAP_LOAD_FACTOR) { \
-            size_t old_n_buckets = map->_n_buckets; \
-            HASHMAP_NAME##Entry** old_buckets = map->_buckets; \
-            map->_n_buckets *= 2; \
-            map->_buckets = calloc(map->_n_buckets, sizeof(void*)); \
-            assert(map->_buckets); \
-            \
-            for (size_t i = 0; i < old_n_buckets; i++) { \
-                HASHMAP_NAME##Entry* entry = old_buckets[i]; \
-                if (entry) \
-                    *(_##HASHMAP_NAME##_locate_entry_holder(map, (const HASHMAP_KEY_TYPE*) &(entry->key))) = entry; \
-            } \
-            free(old_buckets); \
-        } \
+        if ((map->size) / (double) map->_n_buckets >= _HASHMAP_LOAD_FACTOR) \
+            _##HASHMAP_NAME##_resize(map, map->_n_buckets * 2); \
         \
         HASHMAP_NAME##Entry** entry_holder = _##HASHMAP_NAME##_locate_entry_holder(map, key); \
         if (insert && !*entry_holder) { \
@@ -221,15 +231,16 @@ typedef struct
         *entry_holder = NULL; \
         (map->size)--; \
         \
-        /* rehashing possibly colided values */ \
-        size_t ind = entry_holder - map->_buckets+1; \
+        /* cleanup */ \
+        size_t ind = (entry_holder - map->_buckets + 1) % map->_n_buckets; \
         for (;map->_buckets[ind]; ind = (ind + 1) % map->_n_buckets) { \
-            if (!map->_buckets[ind]) \
-                continue; \
             HASHMAP_NAME##Entry* entry = map->_buckets[ind]; \
             map->_buckets[ind] = NULL; \
             *(_##HASHMAP_NAME##_locate_entry_holder(map, (const HASHMAP_KEY_TYPE*) &(entry->key))) = entry; \
         } \
+        if (4 * map->size / (double) map->_n_buckets < _HASHMAP_LOAD_FACTOR && !(map->_n_buckets <= _HASHMAP_MIN_BUCKET_ARRAY_SIZE)) \
+            _##HASHMAP_NAME##_resize(map, map->_n_buckets / 2); \
+        \
     }
 
 #endif
