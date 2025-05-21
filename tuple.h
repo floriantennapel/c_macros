@@ -15,6 +15,7 @@
 // https://www.scs.stanford.edu/~dm/blog/va-opt.html 
 #define _TUPLE_PARENS ()
 
+//expands TUPLE_FOR_EACH_AGAIN a maximum of 256 (4^4) times
 #define _TUPLE_EXPAND(...) _TUPLE_EXPAND4(_TUPLE_EXPAND4(_TUPLE_EXPAND4(_TUPLE_EXPAND4(__VA_ARGS__))))
 #define _TUPLE_EXPAND4(...) _TUPLE_EXPAND3(_TUPLE_EXPAND3(_TUPLE_EXPAND3(_TUPLE_EXPAND3(__VA_ARGS__))))
 #define _TUPLE_EXPAND3(...) _TUPLE_EXPAND2(_TUPLE_EXPAND2(_TUPLE_EXPAND2(_TUPLE_EXPAND2(__VA_ARGS__))))
@@ -23,6 +24,8 @@
 
 #define _TUPLE_FOR_EACH(macro, ...)                                    \
   __VA_OPT__(_TUPLE_EXPAND(_TUPLE_FOR_EACH_HELPER(macro, __VA_ARGS__)))
+
+//recursively calls itself until __VA_ARGS__ is empty
 #define _TUPLE_FOR_EACH_HELPER(macro, a1, ...)                         \
   macro(a1)                                                     \
   __VA_OPT__(_TUPLE_FOR_EACH_AGAIN _TUPLE_PARENS (macro, __VA_ARGS__))
