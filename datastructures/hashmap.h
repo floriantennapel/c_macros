@@ -210,7 +210,7 @@ typedef struct
     \
     \
     /**************************************************************************
-     * Removes and deallocates an entry from the HashMap 
+     * Removes an entry from the HashMap 
      *
      * Other entries might be rehashed, 
      * so take care to not call this function while iterating over `_buckets`

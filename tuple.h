@@ -15,7 +15,7 @@
 // https://www.scs.stanford.edu/~dm/blog/va-opt.html 
 #define _TUPLE_PARENS ()
 
-//expands TUPLE_FOR_EACH_AGAIN a maximum of 256 (4^4) times
+//re-evaluates TUPLE_FOR_EACH_HELPER a maximum of 256 (4^4) times
 #define _TUPLE_EXPAND(...) _TUPLE_EXPAND4(_TUPLE_EXPAND4(_TUPLE_EXPAND4(_TUPLE_EXPAND4(__VA_ARGS__))))
 #define _TUPLE_EXPAND4(...) _TUPLE_EXPAND3(_TUPLE_EXPAND3(_TUPLE_EXPAND3(_TUPLE_EXPAND3(__VA_ARGS__))))
 #define _TUPLE_EXPAND3(...) _TUPLE_EXPAND2(_TUPLE_EXPAND2(_TUPLE_EXPAND2(_TUPLE_EXPAND2(__VA_ARGS__))))
@@ -40,7 +40,8 @@
 * so if fields contain pointers the behaviour might be unexpected
 *
 * @param TUPLE_NAME name of struct and prefix of related functions
-* @param fields valid field declarations
+* @param fields valid field declarations, only one per line, 
+*   currently up to 256 field declarations are supported
 *
 * EXAMPLE USAGE:
 *
@@ -60,12 +61,21 @@
     } TUPLE_NAME; \
     \
     \
-    size_t TUPLE_NAME##_hasher(const TUPLE_NAME* p) \
+    /***********************************************************
+     * Hashes Tuple, 
+     * the byte representation of the tuple is hashed, 
+     * i.e. all fields as they are stored combined in one hash 
+     ***********************************************************/ \
+    size_t TUPLE_NAME##_hash(const TUPLE_NAME* p) \
     { \
         return byte_hasher((const char*)(p), sizeof(TUPLE_NAME)); \
     } \
     \
     \
+    /*************************************************************
+     * Checks if the byte representation of the tuples are equal
+     * i.e. if the fields contain the same values
+     *************************************************************/ \
     bool TUPLE_NAME##_eq(const TUPLE_NAME* a, const TUPLE_NAME* b) \
     { \
         return memcmp(a, b, sizeof(TUPLE_NAME)) == 0; \

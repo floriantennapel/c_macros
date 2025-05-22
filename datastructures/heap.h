@@ -63,6 +63,9 @@
     } \
     \
     \
+    /************************************
+     * Inserts an element into the Heap
+     ************************************/ \
     void HEAP_NAME##_push(HEAP_VECTOR_TYPE* vector, HEAP_VAL_TYPE value) \
     { \
         assert(vector); \
@@ -79,6 +82,9 @@
     } \
     \
     \
+    /************************************************************
+     * Removes the minimum element from the Heap and returns it
+     ************************************************************/ \
     HEAP_VAL_TYPE HEAP_NAME##_pop(HEAP_VECTOR_TYPE* vector) \
     { \
         assert(vector); \
