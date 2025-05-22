@@ -50,7 +50,7 @@
 * // It can now be initialized as any other struct
 * Triple t = {4, 2, "hi"};
 *
-* // it also hash a hash function implemented
+* // it also has a hash function implemented
 * size_t hashcode = Triple_hasher(&t);
 ********************************************************************/
 #define TUPLE_DEFINE(TUPLE_NAME, fields...) \
