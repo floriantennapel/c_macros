@@ -126,10 +126,8 @@ typedef struct
         size_t hash = (HASHMAP_HASH_FUNC(key)) % map->_n_buckets; \
         size_t ind = hash; \
         for (int i = 0;;i++) { \
-            if (!((map->_buckets+ind)->_is_valid) || (HASHMAP_KEY_EQ_FUNC((key), ((const HASHMAP_KEY_TYPE*) &((map->_buckets+ind)->key))))) {\
-                printf("%d collisions\n", i); \
+            if (!((map->_buckets+ind)->_is_valid) || (HASHMAP_KEY_EQ_FUNC((key), ((const HASHMAP_KEY_TYPE*) &((map->_buckets+ind)->key))))) \
                 break; \
-            } \
             ind = (ind + 1) % map->_n_buckets; \
         } \
         return map->_buckets + ind; \
