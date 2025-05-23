@@ -5,34 +5,35 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <stdbool.h>
+#include <stdint.h>
+#include <string.h>
 
-/************************************
- * Utility function to hash strings
- ************************************/
-size_t string_hasher(const char* str) 
-{
-    size_t h = 0, p = 257, m = 1e9+9, pow = 1;
-    for (char* c = (char*)str; *c; c++) {
-        h = (h + pow*(*c)) % m;
-        pow = (pow*p) % m;
-    }
-    return h;
-}
+#include "siphash.h"
 
 /**********************************************************************************
  * Utility function to hash byte arrays
  * Can for instance be used to hash structs by reinterpreting them as byte-arrays
  **********************************************************************************/
-size_t byte_hasher(const char* byte_array, size_t n_bytes) 
+static size_t byte_hasher(const char* byte_array, size_t n_bytes) 
 {
-    size_t h = 0, p = 257, m = 1e9+9, pow = 1;
-    for (size_t i = 0; i < n_bytes; i++) {
-        h = (h + pow*(byte_array[i])) % m;
-        pow = (pow*p) % m;
-    }
-    return h;
+    uint64_t key[] = {0, 0};  // no key is used
+    uint64_t output;
+    _siphash_source_code(byte_array, n_bytes, key, (uint8_t*)&output, 8);
+    return output;
 }
 
+/************************************
+ * Utility function to hash strings
+ ************************************/
+static size_t string_hasher(const char* str) 
+{
+    size_t len = strlen(str);
+    return byte_hasher(str, len);
+}
+
+/*******************************
+ * Empty value to use for sets
+ *******************************/
 typedef struct
 {} HASHMAP_NO_VALUE;
 
@@ -124,9 +125,11 @@ typedef struct
         assert(key); \
         size_t hash = (HASHMAP_HASH_FUNC(key)) % map->_n_buckets; \
         size_t ind = hash; \
-        for (;;) { \
-            if (!((map->_buckets+ind)->_is_valid) || (HASHMAP_KEY_EQ_FUNC((key), ((const HASHMAP_KEY_TYPE*) &((map->_buckets+ind)->key))))) \
+        for (int i = 0;;i++) { \
+            if (!((map->_buckets+ind)->_is_valid) || (HASHMAP_KEY_EQ_FUNC((key), ((const HASHMAP_KEY_TYPE*) &((map->_buckets+ind)->key))))) {\
+                printf("%d collisions\n", i); \
                 break; \
+            } \
             ind = (ind + 1) % map->_n_buckets; \
         } \
         return map->_buckets + ind; \
@@ -238,3 +241,4 @@ typedef struct
     }
 
 #endif
+
