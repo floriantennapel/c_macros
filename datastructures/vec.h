@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <stddef.h>
+#include <string.h>
 
 /*****************************************************************************
 * Generates functions for a new Vec datastructure
@@ -42,6 +43,19 @@
     } \
     \
     \
+    /**************************************************
+     * Creates a new Vector that is a copy of another
+     *
+     * @param copy_from valid initialized vector
+     **************************************************/ \
+    VEC_NAME VEC_NAME##_copy(const VEC_NAME* copy_from) \
+    { \
+        assert(copy_from); \
+        VEC_VAL_TYPE* mem = calloc(copy_from->_arr_cap, sizeof(VEC_VAL_TYPE)); \
+        memcpy(mem, copy_from->arr, copy_from->size * sizeof(VEC_VAL_TYPE)); \
+        assert(mem); \
+        return (VEC_NAME) {mem, copy_from->_arr_cap, copy_from->size}; \
+    } \
     /*********************************************************************************
     * Pushes a value to the back of the Vec, the value is copied and stored in place
     *
