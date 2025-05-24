@@ -2,123 +2,190 @@
 #define TREEMAP_H
 
 #include <stddef.h>
+#include <stdint.h>
 #include <stdbool.h>
 #include <assert.h>
 #include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
 
 typedef struct
 {} TREEMAP_NO_VALUE;
 
-// Code taken and modified from the paper: "Left-leaning Red-Black Trees" 
-// by Robert Sedgewick, 2008
-
-#define _TREEMAP_ROTATE_LEFT(OUT, NODE_TYPE, NODE) \
-{ \
-    NODE_TYPE* X = (NODE)->_right; \
-    (NODE)->_right = X->_left; \
-    X->_left = (NODE); \
-    X->_color = (NODE)->_color; \
-    (NODE)->_color = 1; \
-    (OUT) = X; \
-} 
-
-#define _TREEMAP_ROTATE_RIGHT(OUT, NODE_TYPE, NODE) \
-{ \
-    NODE_TYPE* X = (NODE)->_left; \
-    (NODE)->_left = X->_right; \
-    X->_right = (NODE); \
-    X->_color = (NODE)->_color; \
-    (NODE)->_color = 1; \
-    (OUT) = X; \
-} 
-
-#define _TREEMAP_IS_RED(NODE) ((NODE) && (NODE)->_color)
+// maximum number of children
+#ifndef _TREEMAP_M
+#define _TREEMAP_M 16
+#endif
 
 #define TREEMAP_DEFINE(TREEMAP_NAME, TREEMAP_KEY_TYPE, TREEMAP_VAL_TYPE, TREEMAP_KEY_CMP) \
-    typedef struct TREEMAP_NAME##Node \
+    typedef struct \
     { \
         TREEMAP_KEY_TYPE key; \
         TREEMAP_VAL_TYPE value; \
-        struct TREEMAP_NAME##Node *_left, *_right; \
-        unsigned _color: 1; \
-    } TREEMAP_NAME##Node; \
+    } TREEMAP_NAME##Entry; \
+    \
+    typedef struct _##TREEMAP_NAME##Node _##TREEMAP_NAME##Node; \
     \
     typedef struct \
     { \
-        TREEMAP_NAME##Node* root; \
+        TREEMAP_NAME##Entry entry; \
+        _##TREEMAP_NAME##Node* lt_child; \
+    } _##TREEMAP_NAME##NodeEntry; \
+    \
+    struct _##TREEMAP_NAME##Node \
+    { \
+        _##TREEMAP_NAME##NodeEntry entries[_TREEMAP_M]; \
+        unsigned n_entries: 15; \
+        unsigned is_leaf: 1; \
+    }; \
+    \
+    typedef struct \
+    { \
+        _##TREEMAP_NAME##Node* _root; \
         size_t size; \
     } TREEMAP_NAME; \
     \
     \
-    typedef struct \
+    /*typedef struct \
     { \
         TREEMAP_NAME##Node* current; \
         unsigned _stack_size; \
         TREEMAP_NAME##Node* _callstack[200]; \
     } TREEMAP_NAME##Iter; \
-    \
+    \*/ \
     \
     TREEMAP_NAME TREEMAP_NAME##_new() \
     { \
-        return (TREEMAP_NAME) {NULL, 0}; \
+        _##TREEMAP_NAME##Node* root = calloc(1, sizeof(_##TREEMAP_NAME##Node)); \
+        assert(root != NULL); \
+        root->is_leaf = 1; \
+        return (TREEMAP_NAME) {root, 0}; \
     } \
     \
     \
-    /***************************
-    * Do not use this function
-    ****************************/ \
-    TREEMAP_NAME##Node* _##TREEMAP_NAME##_search_helper(TREEMAP_NAME* tree, TREEMAP_NAME##Node* node, const TREEMAP_KEY_TYPE* key, bool insert, TREEMAP_NAME##Node** search_result) \
+    _##TREEMAP_NAME##NodeEntry* _##TREEMAP##_search_helper( \
+        TREEMAP_NAME* map, _##TREEMAP_NAME##Node* node, const TREEMAP_KEY_TYPE* key, \
+        bool insert, TREEMAP_NAME##Entry** res) \
     { \
-        if (!node) { \
-            if (insert) { \
-                TREEMAP_NAME##Node* ret = calloc(1, sizeof(TREEMAP_NAME##Node)); \
-                assert(ret != NULL); \
-                (tree->size)++; \
-                ret->key = *key; \
-                ret->_color = 1; \
-                *search_result = ret; \
-                return ret; \
-            } else { \
-                *search_result = NULL; \
+        int n = node->n_entries; \
+        for (int i = 0; i < n+1; i++) { \
+            _##TREEMAP_NAME##NodeEntry* entry = node->entries+i; \
+            int cmp_res = i == n \
+                    ? -1 \
+                    : TREEMAP_KEY_CMP((const TREEMAP_KEY_TYPE*)(key), (const TREEMAP_KEY_TYPE*)(&(entry->entry.key))); \
+            \
+            if (cmp_res == 0) { \
+                *res = &(entry->entry); \
                 return NULL; \
+            } else if (cmp_res < 0) { \
+                bool set_res = false; \
+                \
+                _##TREEMAP_NAME##NodeEntry new_entry; \
+                if (node->is_leaf) { \
+                    if (!insert) { \
+                        *res = NULL; \
+                        return NULL; \
+                    } \
+                    new_entry.entry.key = *key; \
+                    new_entry.lt_child = NULL; \
+                    set_res = true; \
+                    (map->size)++; \
+                } else { \
+                    _##TREEMAP_NAME##NodeEntry* floater = _##TREEMAP##_search_helper( \
+                            map, entry->lt_child, key, insert, res \
+                    ); \
+                    if (!floater) \
+                        return NULL; \
+                    if (&floater->entry == *res) \
+                        set_res = true; \
+                    new_entry = *floater; \
+                } \
+                /* if we got here it means we have a new entry to insert */ \
+                \
+                /* storing gt_child in case memmove overwrites it */ \
+                _##TREEMAP_NAME##Node* gt_child = (node->entries+n)->lt_child; \
+                bool is_full = n == _TREEMAP_M - 1; \
+                int n_move = is_full \
+                        ? n - i \
+                        : n - i + 1; \
+                memmove(node->entries+i+1, node->entries+i, n_move*sizeof(_##TREEMAP_NAME##NodeEntry)); \
+                node->entries[i] = new_entry; \
+                \
+                if (!is_full) { \
+                    if (set_res) \
+                        *res = &(node->entries+i)->entry; \
+                    (node->n_entries)++; \
+                    return NULL; \
+                } \
+                int median_ind = n / 2; \
+                _##TREEMAP_NAME##NodeEntry median = node->entries[median_ind]; \
+                _##TREEMAP_NAME##Node* new_node = calloc(1, sizeof(_##TREEMAP_NAME##Node)); \
+                new_node->is_leaf = node->is_leaf; \
+                (new_node->entries+median_ind)->lt_child = median.lt_child; \
+                median.lt_child = new_node; \
+                memcpy(new_node->entries, node->entries, sizeof(_##TREEMAP_NAME##NodeEntry)*median_ind); \
+                memmove(node->entries, node->entries+median_ind+1, sizeof(_##TREEMAP_NAME##NodeEntry)*(_TREEMAP_M/2)); \
+                (node->entries+_TREEMAP_M/2)->lt_child = gt_child; \
+                node->n_entries = _TREEMAP_M/2; \
+                new_node->n_entries = median_ind; \
+                \
+                if (set_res) { \
+                    if (i < median_ind) \
+                        *res = &(new_node->entries+i)->entry; \
+                    else if (i > median_ind) \
+                        *res = &(node->entries+(i-median_ind-1))->entry; \
+                    else { \
+                        /* must reassign res recursively if this is the case */ \
+                        *res = &(new_node->entries+n)->entry; \
+                    } \
+                } \
+                /* temporarily store median in last index of left child */ \
+                new_node->entries[n] = median; \
+                return new_node->entries + n; \
             } \
         } \
-        \
-        if (insert && _TREEMAP_IS_RED(node->_left) && _TREEMAP_IS_RED(node->_right)) { \
-            node->_left->_color = 0; \
-            node->_right->_color = 0; \
-            node->_color = !(node->_color); \
-        } \
-        \
-        int cmp_res = TREEMAP_KEY_CMP(key, &(node->key)); \
-        if (!cmp_res) \
-            *search_result = node; \
-        else if (cmp_res < 0) \
-            node->_left = _##TREEMAP_NAME##_search_helper(tree, node->_left, key, insert, search_result); \
-        else \
-            node->_right = _##TREEMAP_NAME##_search_helper(tree, node->_right, key, insert, search_result); \
-        \
-        if (insert && _TREEMAP_IS_RED(node->_right) && !_TREEMAP_IS_RED(node->_left)) \
-            _TREEMAP_ROTATE_LEFT(node, TREEMAP_NAME##Node, node); \
-        if (insert && _TREEMAP_IS_RED(node->_left) && _TREEMAP_IS_RED(node->_left->_left)) \
-            _TREEMAP_ROTATE_RIGHT(node, TREEMAP_NAME##Node, node); \
-        \
-        return node; \
+        fprintf(stderr, #TREEMAP_NAME"_search: runtime error\n"); \
+        exit(1); \
+        return NULL; /* just to avoid compiler warning */\
     } \
     \
-    TREEMAP_NAME##Node* TREEMAP_NAME##_search(TREEMAP_NAME* map, const TREEMAP_KEY_TYPE* key, bool insert) \
+    TREEMAP_NAME##Entry* TREEMAP_NAME##_search(TREEMAP_NAME* map, const TREEMAP_KEY_TYPE* key, bool insert) \
     { \
         assert(map != NULL); \
         assert(key != NULL); \
-        TREEMAP_NAME##Node* res; \
-        map->root = _##TREEMAP_NAME##_search_helper(map, map->root, key, insert, &res); \
-        if (map->root) \
-            map->root->_color = 0; \
+        TREEMAP_NAME##Entry* res; \
+        _##TREEMAP_NAME##NodeEntry* floater = _##TREEMAP##_search_helper( \
+                map, map->_root, key, insert, &res \
+        ); \
+        if (floater) { \
+            _##TREEMAP_NAME##Node* old_root = map->_root; \
+            _##TREEMAP_NAME##Node* new_root = calloc(1, sizeof(_##TREEMAP_NAME##Node)); \
+            assert(new_root); \
+            new_root->is_leaf = 0; \
+            new_root->n_entries = 1; \
+            new_root->entries[0] = *floater; \
+            new_root->entries[1].lt_child = old_root; \
+            new_root->n_entries = 1; \
+            if (&floater->entry == res) \
+                res = &(new_root->entries->entry); \
+            map->_root = new_root; \
+        } \
         return res; \
     } \
     \
     \
-    /* todo deletion */ \
+    bool TREEMAP_NAME##_contains(const TREEMAP_NAME* map, const TREEMAP_KEY_TYPE* key) \
+    { \
+        assert(map != NULL); \
+        assert(key != NULL); \
+        return TREEMAP_NAME##_search((TREEMAP_NAME*)map, key, false) != NULL; \
+    } \
+    \
+    void TREEMAP_NAME##_insert(TREEMAP_NAME* map, TREEMAP_KEY_TYPE key, TREEMAP_VAL_TYPE value) \
+    { \
+        assert(map != NULL); \
+        TREEMAP_NAME##_search(map,(const TREEMAP_KEY_TYPE*)&key, true)->value = value; \
+    } \
     /**************************************************************************************
      * creates an Iterator to iterate over all elements efficiently
      * the field current holds the current element, or NULL if there are no more elements
@@ -131,6 +198,7 @@ typedef struct
      *
      * Does not own any memory, so no deallocation is needed afterwards
      **************************************************************************************/ \
+    /*
     TREEMAP_NAME##Iter TREEMAP_NAME##_get_iter(const TREEMAP_NAME* tree, const TREEMAP_KEY_TYPE* key) \
     { \
         assert(tree != NULL); \
@@ -157,11 +225,12 @@ typedef struct
         return ret; \
     } \
     \
-    \
+    \*/ \
     /**************************************************************
      * sets the field current to be the next element in the tree,
      * if there are no more elements, current is set to NULL
      **************************************************************/ \
+    /*
     void TREEMAP_NAME##Iter_inc(TREEMAP_NAME##Iter* iter) \
     { \
         assert(iter != NULL); \
@@ -176,7 +245,7 @@ typedef struct
         iter->current = iter->_stack_size \
             ? iter->_callstack[iter->_stack_size-1] \
             : NULL; \
-    }
+    }*/
     
 
 
