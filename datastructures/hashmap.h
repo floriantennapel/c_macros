@@ -185,9 +185,9 @@ typedef struct
     /**********************************
      * Assigns a value to a given key
     ***********************************/ \
-    void HASHMAP_NAME##_insert(HASHMAP_NAME* map, const HASHMAP_KEY_TYPE* key, const HASHMAP_VALUE_TYPE* value) \
+    void HASHMAP_NAME##_insert(HASHMAP_NAME* map, HASHMAP_KEY_TYPE key, HASHMAP_VALUE_TYPE value) \
     { \
-        HASHMAP_NAME##_search(map, key, true)->value = *value; \
+        HASHMAP_NAME##_search(map, (const HASHMAP_KEY_TYPE*)&key, true)->value = value; \
     } \
     \
     \
