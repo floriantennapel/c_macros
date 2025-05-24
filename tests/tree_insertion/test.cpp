@@ -1,6 +1,7 @@
 #include <omp.h>
 #include <iostream>
 #include <set>
+#include <vector>
 
 int main() 
 {
@@ -8,18 +9,29 @@ int main()
     std::cin.tie(nullptr);
 
     std::set<int> tree;
+    std::vector<int> input;
     int n, d;
     std::cin >> n; 
-    double start = omp_get_wtime();
-    while (n--) {
+    for (int i = 0; i < n; i++) {
         std::cin >> d;
-        tree.insert(d);
+        input.push_back(d);
     }
+
+    double start = omp_get_wtime();
+    for (int i = 0; i < n; i++)
+        tree.insert(input[i]);
     double stop = omp_get_wtime();
     printf("insertion took: %lf s\n", stop-start);
 
-    start = omp_get_wtime();
     int sum = 0;
+    start = omp_get_wtime();
+    for (int i = 0; i < n; i++)
+        sum += *tree.find(input[i]);
+    stop = omp_get_wtime();
+    printf("queries took: %lf s\n", stop-start);
+
+
+    start = omp_get_wtime();
     for (int num : tree) {
         sum += num;
     }
