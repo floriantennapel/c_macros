@@ -14,7 +14,7 @@ typedef struct
 
 // maximum number of children
 #ifndef _TREEMAP_M
-#define _TREEMAP_M 16
+#define _TREEMAP_M 32
 #endif
 
 #define TREEMAP_DEFINE(TREEMAP_NAME, TREEMAP_KEY_TYPE, TREEMAP_VAL_TYPE, TREEMAP_KEY_CMP) \
@@ -45,15 +45,26 @@ typedef struct
         size_t size; \
     } TREEMAP_NAME; \
     \
-    \
-    /*typedef struct \
+    typedef struct \
     { \
-        TREEMAP_NAME##Node* current; \
-        unsigned _stack_size; \
-        TREEMAP_NAME##Node* _callstack[200]; \
-    } TREEMAP_NAME##Iter; \
-    \*/ \
+    _##TREEMAP_NAME##Node* node; \
+    unsigned node_ind: 16; \
+    } _##TREEMAP_NAME##IterStackEntry; \
     \
+    typedef struct \
+    { \
+        TREEMAP_NAME##Entry* current; \
+        unsigned _stack_size: 8; \
+        _##TREEMAP_NAME##IterStackEntry _callstack[200]; \
+    } TREEMAP_NAME##Iter; \
+    \
+    \
+    /**********************************************************************************
+     * Initializes a new treemap
+     *
+     * The returned struct is the owner of the tree
+     * The field `size` can be used to query the number of entries stored in the tree
+     **********************************************************************************/ \
     TREEMAP_NAME TREEMAP_NAME##_new() \
     { \
         _##TREEMAP_NAME##Node* root = calloc(1, sizeof(_##TREEMAP_NAME##Node)); \
@@ -63,6 +74,11 @@ typedef struct
     } \
     \
     \
+    /*******************************************************************************
+     * Do not use this function
+     *
+     * Recursively searches for (and if not present inserts) an entry int the tree
+     *******************************************************************************/ \
     _##TREEMAP_NAME##NodeEntry* _##TREEMAP##_search_helper( \
         TREEMAP_NAME* map, _##TREEMAP_NAME##Node* node, const TREEMAP_KEY_TYPE* key, \
         bool insert, TREEMAP_NAME##Entry** res) \
@@ -149,6 +165,17 @@ typedef struct
         return NULL; /* just to avoid compiler warning */\
     } \
     \
+    \
+    /*************************************************************************
+     * Searches for a key-value pair in the tree
+     * 
+     * @param insert is this is true and the entry is not present
+     *     a new entry is inserted, with a value set to zeroes
+     *
+     * @returns A pointer to the entry containing the key and value, 
+     *    THE KEY MUST NOT BE MODIFIED
+     *    If the entry was not found, and insert was false, NULL is returned
+     *************************************************************************/ \
     TREEMAP_NAME##Entry* TREEMAP_NAME##_search(TREEMAP_NAME* map, const TREEMAP_KEY_TYPE* key, bool insert) \
     { \
         assert(map != NULL); \
@@ -174,6 +201,30 @@ typedef struct
     } \
     \
     \
+    /****************************************
+     * Deallocate resources used by treemap
+     * DO NOT use it after this point
+     ****************************************/ \
+    void TREEMAP_NAME##_free(TREEMAP_NAME* map) \
+    { \
+        assert(map); \
+        _##TREEMAP_NAME##Node* stack[200]; \
+        int stack_size = 0; \
+        stack[stack_size++] = map->_root; \
+        while (stack_size) { \
+            _##TREEMAP_NAME##Node* current = stack[--stack_size]; \
+            if (!current->is_leaf) { \
+                for (int i = 0; i < current->n_entries+1; i++) \
+                    stack[stack_size++] = current->entries[i].lt_child; \
+            } \
+            free(current); \
+        } \
+    } \
+    \
+    \
+    /*************************************
+     * Check if key is contained in tree
+     *************************************/ \
     bool TREEMAP_NAME##_contains(const TREEMAP_NAME* map, const TREEMAP_KEY_TYPE* key) \
     { \
         assert(map != NULL); \
@@ -181,6 +232,11 @@ typedef struct
         return TREEMAP_NAME##_search((TREEMAP_NAME*)map, key, false) != NULL; \
     } \
     \
+    \
+    /******************************************************************
+     * Set the value at the given key
+     * If the key is not present in the tree, a new entry is inserted
+     ******************************************************************/ \
     void TREEMAP_NAME##_insert(TREEMAP_NAME* map, TREEMAP_KEY_TYPE key, TREEMAP_VAL_TYPE value) \
     { \
         assert(map != NULL); \
@@ -198,56 +254,72 @@ typedef struct
      *
      * Does not own any memory, so no deallocation is needed afterwards
      **************************************************************************************/ \
-    /*
     TREEMAP_NAME##Iter TREEMAP_NAME##_get_iter(const TREEMAP_NAME* tree, const TREEMAP_KEY_TYPE* key) \
     { \
         assert(tree != NULL); \
         TREEMAP_NAME##Iter ret; \
         ret._stack_size = 0; \
-        TREEMAP_NAME##Node* current_node = tree->root; \
+        _##TREEMAP_NAME##Node* current_node = tree->_root; \
         while (current_node) { \
-            int cmp_res = key ? TREEMAP_KEY_CMP(key, &(current_node->key)) : -1; \
-            if (cmp_res == 0 || (!key && !(current_node->_left))) { \
-                ret._callstack[(ret._stack_size)++] = current_node; \
-                break; \
-            } else if (cmp_res < 0) { \
-                ret._callstack[(ret._stack_size)++] = current_node; \
-                current_node = current_node->_left; \
-            } else \
-                current_node = current_node->_right; \
+            for (int i = 0; i < current_node->n_entries+1; i++) { \
+                _##TREEMAP_NAME##NodeEntry* entry = current_node->entries+i; \
+                int cmp_res = !key || i == current_node->n_entries \
+                        ? -1 \
+                        : TREEMAP_KEY_CMP(key, (const TREEMAP_KEY_TYPE*)(&(entry->entry.key))); \
+                if (cmp_res > 0) \
+                    continue; \
+                \
+                if (i != current_node->n_entries) \
+                    ret._callstack[(ret._stack_size)++] = (_##TREEMAP_NAME##IterStackEntry) {current_node, i}; \
+                if (cmp_res == 0 || (!key && current_node->is_leaf)) \
+                    goto break_outer; \
+                else { \
+                    if (!current_node->is_leaf) \
+                        current_node = entry->lt_child; \
+                    else \
+                        current_node = NULL; \
+                    break; \
+                } \
+            } \
         } \
+    break_outer: \
         if (!current_node) { \
             ret._stack_size = 0; \
             ret.current = NULL; \
         } else { \
-            ret.current = current_node; \
+            _##TREEMAP_NAME##IterStackEntry se = ret._callstack[ret._stack_size-1]; \
+            ret.current = &(se.node->entries+(se.node_ind))->entry; \
         } \
         return ret; \
     } \
     \
-    \*/ \
+    \
     /**************************************************************
      * sets the field current to be the next element in the tree,
      * if there are no more elements, current is set to NULL
      **************************************************************/ \
-    /*
     void TREEMAP_NAME##Iter_inc(TREEMAP_NAME##Iter* iter) \
     { \
         assert(iter != NULL); \
         if (!iter->current) \
             return; \
-        TREEMAP_NAME##Node* current_node = (iter->_callstack[--(iter->_stack_size)])->_right; \
-        while (current_node) { \
-            assert(iter->_stack_size < 198); \
-            iter->_callstack[(iter->_stack_size)++] = current_node; \
-            current_node = current_node->_left; \
+        _##TREEMAP_NAME##IterStackEntry se = iter->_callstack[--(iter->_stack_size)]; \
+        _##TREEMAP_NAME##Node* current_node = se.node; \
+        int current_ind = se.node_ind + 1; \
+        for (;;) { \
+            if (current_ind != current_node->n_entries) \
+                iter->_callstack[(iter->_stack_size)++] = (_##TREEMAP_NAME##IterStackEntry) {current_node, current_ind}; \
+            if (current_node->is_leaf) \
+                break; \
+            current_node = current_node->entries[current_ind].lt_child; \
+            current_ind = 0; \
         } \
+        \
+        se = iter->_callstack[iter->_stack_size-1]; \
         iter->current = iter->_stack_size \
-            ? iter->_callstack[iter->_stack_size-1] \
+            ? &(se.node->entries[se.node_ind].entry) \
             : NULL; \
-    }*/
-    
-
+    }
 
 
 #endif
