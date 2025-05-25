@@ -37,7 +37,7 @@ int main()
     printf("queries took: %lf s\n", stop-start);
 
     start = omp_get_wtime();
-    for (SetIter it = Set_get_iter(&tree, NULL); it.current; SetIter_inc(&it)) {
+    for (SetIter it = Set_min_iter(&tree); it.current; SetIter_inc(&it)) {
         sum += it.current->key; \
     }
     stop = omp_get_wtime();

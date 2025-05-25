@@ -48,7 +48,7 @@ typedef struct
     typedef struct \
     { \
     _##TREEMAP_NAME##Node* node; \
-    unsigned node_ind: 16; \
+    signed node_ind: 16; \
     } _##TREEMAP_NAME##IterStackEntry; \
     \
     typedef struct \
@@ -104,6 +104,7 @@ typedef struct
                     } \
                     new_entry.entry.key = *key; \
                     new_entry.lt_child = NULL; \
+                    memset(&(new_entry.entry.value), '\0', sizeof(TREEMAP_VAL_TYPE)); \
                     set_res = true; \
                     (map->size)++; \
                 } else { \
@@ -242,6 +243,26 @@ typedef struct
         assert(map != NULL); \
         TREEMAP_NAME##_search(map,(const TREEMAP_KEY_TYPE*)&key, true)->value = value; \
     } \
+    \
+    \
+    /*******************************************************
+     * Do not use this function
+     *
+     * Walks an iterator to the minimum or maximum element 
+     * of the subtree rooted at the current element
+     *******************************************************/ \
+    void _##TREEMAP_NAME##Iter_walk_subtree_minmax(TREEMAP_NAME##Iter* iter, bool find_min) \
+    { \
+        _##TREEMAP_NAME##IterStackEntry se = iter->_callstack[iter->_stack_size-1]; \
+        _##TREEMAP_NAME##Node* node = se.node; \
+        int ind = se.node_ind; \
+        while (!node->is_leaf) { \
+            node = node->entries[ind].lt_child; \
+            ind = find_min ? 0 : node->n_entries; \
+            iter->_callstack[(iter->_stack_size)++] = (_##TREEMAP_NAME##IterStackEntry) {node, ind}; \
+        } \
+        iter->current = &(node->entries[ind].entry); \
+    } \
     /**************************************************************************************
      * creates an Iterator to iterate over all elements efficiently
      * the field current holds the current element, or NULL if there are no more elements
@@ -250,28 +271,27 @@ typedef struct
      * If the key is not found, the iterator will be empty, with no elements
      *
      * @param key starts iterator at the element matching this key. 
-     *    If NULL is passed, the iterator starts at the first element of the tree
      *
      * Does not own any memory, so no deallocation is needed afterwards
      **************************************************************************************/ \
-    TREEMAP_NAME##Iter TREEMAP_NAME##_get_iter(const TREEMAP_NAME* tree, const TREEMAP_KEY_TYPE* key) \
+    TREEMAP_NAME##Iter TREEMAP_NAME##_iter(const TREEMAP_NAME* tree, const TREEMAP_KEY_TYPE* key) \
     { \
         assert(tree != NULL); \
+        assert(key != NULL); \
         TREEMAP_NAME##Iter ret; \
         ret._stack_size = 0; \
         _##TREEMAP_NAME##Node* current_node = tree->_root; \
         while (current_node) { \
             for (int i = 0; i < current_node->n_entries+1; i++) { \
                 _##TREEMAP_NAME##NodeEntry* entry = current_node->entries+i; \
-                int cmp_res = !key || i == current_node->n_entries \
+                int cmp_res = i == current_node->n_entries \
                         ? -1 \
                         : TREEMAP_KEY_CMP(key, (const TREEMAP_KEY_TYPE*)(&(entry->entry.key))); \
                 if (cmp_res > 0) \
                     continue; \
                 \
-                if (i != current_node->n_entries) \
-                    ret._callstack[(ret._stack_size)++] = (_##TREEMAP_NAME##IterStackEntry) {current_node, i}; \
-                if (cmp_res == 0 || (!key && current_node->is_leaf)) \
+                ret._callstack[(ret._stack_size)++] = (_##TREEMAP_NAME##IterStackEntry) {current_node, i}; \
+                if (cmp_res == 0) \
                     goto break_outer; \
                 else { \
                     if (!current_node->is_leaf) \
@@ -294,6 +314,136 @@ typedef struct
     } \
     \
     \
+    /*******************************************************************
+     * Returns an iterator starting at the minimum element in the map
+     *******************************************************************/ \
+    TREEMAP_NAME##Iter TREEMAP_NAME##_min_iter(const TREEMAP_NAME* map) \
+    { \
+        assert(map != NULL); \
+        TREEMAP_NAME##Iter ret; \
+        ret.current = NULL; \
+        ret._stack_size = 0; \
+        if (map->size == 0) \
+            return ret; \
+        ret._callstack[0] = (_##TREEMAP_NAME##IterStackEntry) {map->_root, 0}; \
+        ret._stack_size = 1; \
+        _##TREEMAP_NAME##Iter_walk_subtree_minmax(&ret, true); \
+        return ret; \
+    } \
+    \
+    \
+    /*******************************************************************
+     * Returns an iterator starting at the maximum element in the map
+     *******************************************************************/ \
+    TREEMAP_NAME##Iter TREEMAP_NAME##_max_iter(const TREEMAP_NAME* map) \
+    { \
+        assert(map != NULL); \
+        TREEMAP_NAME##Iter ret; \
+        ret.current = NULL; \
+        ret._stack_size = 0; \
+        if (map->size == 0) \
+            return ret; \
+        ret._callstack[0] = (_##TREEMAP_NAME##IterStackEntry) {map->_root, map->_root->n_entries}; \
+        ret._stack_size = 1; \
+        _##TREEMAP_NAME##Iter_walk_subtree_minmax(&ret, false); \
+        _##TREEMAP_NAME##IterStackEntry* stack_top = ret._callstack + (ret._stack_size-1); \
+        ret.current = &(stack_top->node->entries[--(stack_top->node_ind)].entry); \
+        return ret; \
+    } \
+    \
+    \
+    /*********************************************
+     * Returns an iterator starting at the 
+     * maximum element less than or equal to key
+     *********************************************/ \
+    TREEMAP_NAME##Iter TREEMAP_NAME##_floor_iter(const TREEMAP_NAME* map, const TREEMAP_KEY_TYPE* key) \
+    { \
+        assert(map != NULL); \
+        assert(key != NULL); \
+        TREEMAP_NAME##Iter ret; \
+        ret.current = NULL; \
+        ret._stack_size = 0; \
+        if (map->size == 0) \
+            return ret; \
+        \
+        _##TREEMAP_NAME##Node* current_node = map->_root; \
+        for (int i = 0; i < current_node->n_entries+1;) { \
+            _##TREEMAP_NAME##NodeEntry* entry = current_node->entries + i; \
+            int cmp_res = i == current_node->n_entries \
+                    ? -1 \
+                    : TREEMAP_KEY_CMP(key, (const TREEMAP_KEY_TYPE*)(&(entry->entry.key))); \
+            if (cmp_res > 0) { \
+                i++; \
+                continue; \
+            } \
+            ret._callstack[ret._stack_size++] = (_##TREEMAP_NAME##IterStackEntry) {current_node, i}; \
+            if (cmp_res == 0) \
+                break; \
+            else { \
+                if (current_node->is_leaf) { \
+                    while (ret._stack_size && (ret._callstack[ret._stack_size-1].node_ind--) == 0) \
+                        ret._stack_size--; \
+                    break; \
+                } \
+                current_node = current_node->entries[i].lt_child; \
+                i = 0; \
+            } \
+        } \
+        if (ret._stack_size == 0) \
+            return ret; \
+        _##TREEMAP_NAME##IterStackEntry* se = ret._callstack + (ret._stack_size-1); \
+        ret.current = &(se->node->entries[se->node_ind].entry); \
+        return ret; \
+    } \
+    \
+    \
+    /************************************************
+     * Returns an iterator starting at the 
+     * minimum element greater than or equal to key
+     ************************************************/ \
+    TREEMAP_NAME##Iter TREEMAP_NAME##_ceil_iter(const TREEMAP_NAME* map, const TREEMAP_KEY_TYPE* key) \
+    { \
+        assert(map != NULL); \
+        assert(key != NULL); \
+        TREEMAP_NAME##Iter ret; \
+        ret.current = NULL; \
+        ret._stack_size = 0; \
+        if (map->size == 0) \
+            return ret; \
+        \
+        _##TREEMAP_NAME##Node* current_node = map->_root; \
+        for (int i = 0; i < current_node->n_entries+1;) { \
+            _##TREEMAP_NAME##NodeEntry* entry = current_node->entries + i; \
+            int cmp_res = i == current_node->n_entries \
+                    ? -1 \
+                    : TREEMAP_KEY_CMP(key, (const TREEMAP_KEY_TYPE*)(&(entry->entry.key))); \
+            if (cmp_res > 0) { \
+                i++; \
+                continue; \
+            } \
+            ret._callstack[ret._stack_size++] = (_##TREEMAP_NAME##IterStackEntry) {current_node, i}; \
+            if (cmp_res == 0) \
+                break; \
+            else { \
+                if (current_node->is_leaf) { \
+                    while (ret._stack_size && ret._callstack[ret._stack_size-1].node_ind == current_node->n_entries) { \
+                        ret._stack_size--; \
+                        current_node = ret._callstack[ret._stack_size-1].node; \
+                    } \
+                    break; \
+                } \
+                current_node = current_node->entries[i].lt_child; \
+                i = 0; \
+            } \
+        } \
+        if (ret._stack_size == 0) \
+            return ret; \
+        _##TREEMAP_NAME##IterStackEntry* se = ret._callstack + (ret._stack_size-1); \
+        ret.current = &(se->node->entries[se->node_ind].entry); \
+        return ret; \
+    } \
+    \
+    \
     /**************************************************************
      * sets the field current to be the next element in the tree,
      * if there are no more elements, current is set to NULL
@@ -303,23 +453,50 @@ typedef struct
         assert(iter != NULL); \
         if (!iter->current) \
             return; \
-        _##TREEMAP_NAME##IterStackEntry se = iter->_callstack[--(iter->_stack_size)]; \
-        _##TREEMAP_NAME##Node* current_node = se.node; \
-        int current_ind = se.node_ind + 1; \
-        for (;;) { \
-            if (current_ind != current_node->n_entries) \
-                iter->_callstack[(iter->_stack_size)++] = (_##TREEMAP_NAME##IterStackEntry) {current_node, current_ind}; \
-            if (current_node->is_leaf) \
+        ++(iter->_callstack[iter->_stack_size-1].node_ind); \
+        _##TREEMAP_NAME##Iter_walk_subtree_minmax(iter, true); \
+        \
+        _##TREEMAP_NAME##IterStackEntry se; \
+        while (iter->_stack_size > 0) { \
+            se = iter->_callstack[iter->_stack_size-1]; \
+            _##TREEMAP_NAME##Node* current_node = se.node; \
+            int current_ind = se.node_ind; \
+            if (current_ind < current_node->n_entries) \
                 break; \
-            current_node = current_node->entries[current_ind].lt_child; \
-            current_ind = 0; \
+            (iter->_stack_size)--; \
         } \
         \
+        if (!iter->_stack_size) { \
+            iter->current = NULL; \
+            return; \
+        } \
         se = iter->_callstack[iter->_stack_size-1]; \
-        iter->current = iter->_stack_size \
-            ? &(se.node->entries[se.node_ind].entry) \
-            : NULL; \
-    }
-
+        iter->current = &(se.node->entries[se.node_ind].entry); \
+    } \
+    \
+    \
+    /**************************************************************
+     * sets the field current to be the previous element in the tree,
+     * if there are no more elements, current is set to NULL
+     **************************************************************/ \
+    void TREEMAP_NAME##Iter_dec(TREEMAP_NAME##Iter* iter) \
+    { \
+        assert(iter != NULL); \
+        if (!iter->current) \
+            return; \
+        _##TREEMAP_NAME##Iter_walk_subtree_minmax(iter, false); \
+        int current_ind = --(iter->_callstack[iter->_stack_size-1].node_ind); \
+        while (current_ind < 0) { \
+            --(iter->_stack_size); \
+            if (!iter->_stack_size) { \
+                iter->current = NULL; \
+                return; \
+            } \
+            current_ind = --(iter->_callstack[iter->_stack_size-1].node_ind); \
+        } \
+        \
+        _##TREEMAP_NAME##IterStackEntry se = iter->_callstack[iter->_stack_size-1]; \
+        iter->current = &(se.node->entries[se.node_ind].entry); \
+    } \
 
 #endif
