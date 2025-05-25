@@ -22,15 +22,6 @@ static size_t byte_hasher(const char* byte_array, size_t n_bytes)
     return output;
 }
 
-/************************************
- * Utility function to hash strings
- ************************************/
-static size_t string_hasher(const char* str) 
-{
-    size_t len = strlen(str);
-    return byte_hasher(str, len);
-}
-
 /*******************************
  * Empty value to use for sets
  *******************************/
