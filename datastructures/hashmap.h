@@ -166,6 +166,7 @@ typedef struct
         if (insert && !(entry_holder->_is_valid)) { \
             entry_holder->_is_valid = 1; \
             entry_holder->key = (HASHMAP_KEY_TYPE) *key; \
+            memset(&(entry_holder->value), '\0', sizeof(HASHMAP_VALUE_TYPE)); \
             map->size++; \
         } \
         \

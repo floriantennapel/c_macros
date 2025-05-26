@@ -52,8 +52,8 @@
     { \
         assert(copy_from); \
         VEC_VAL_TYPE* mem = calloc(copy_from->_arr_cap, sizeof(VEC_VAL_TYPE)); \
-        memcpy(mem, copy_from->arr, copy_from->size * sizeof(VEC_VAL_TYPE)); \
         assert(mem); \
+        memcpy(mem, copy_from->arr, copy_from->size * sizeof(VEC_VAL_TYPE)); \
         return (VEC_NAME) {mem, copy_from->_arr_cap, copy_from->size}; \
     } \
     /*********************************************************************************
