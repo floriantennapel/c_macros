@@ -74,15 +74,20 @@ typedef struct
 #define HASHMAP_DEFINE(HASHMAP_NAME, HASHMAP_KEY_TYPE, HASHMAP_VALUE_TYPE, HASHMAP_HASH_FUNC, HASHMAP_KEY_EQ_FUNC) \
     typedef struct \
     { \
-        unsigned _is_valid: 1; \
         HASHMAP_KEY_TYPE key; \
         HASHMAP_VALUE_TYPE value; \
     } HASHMAP_NAME##Entry; \
     \
     typedef struct \
     { \
+        unsigned _is_valid: 1; \
+        HASHMAP_NAME##Entry entry; \
+    } _##HASHMAP_NAME##BucketEntry; \
+    \
+    typedef struct \
+    { \
         size_t size; \
-        HASHMAP_NAME##Entry* _buckets; \
+        _##HASHMAP_NAME##BucketEntry* _buckets; \
         size_t _n_buckets; \
     } HASHMAP_NAME; \
     \
@@ -99,7 +104,7 @@ typedef struct
         size_t capacity = _HASHMAP_MIN_BUCKET_ARRAY_SIZE; \
         for (; capacity < initial_capacity && capacity < _HASHMAP_MAX_BUCKET_ARRAY_SIZE; capacity <<= 1); \
         HASHMAP_NAME ret = {0, NULL, capacity}; \
-        ret._buckets = calloc(capacity, sizeof(HASHMAP_NAME##Entry)); \
+        ret._buckets = calloc(capacity, sizeof(_##HASHMAP_NAME##BucketEntry)); \
         assert(ret._buckets); \
         return ret; \
     } \
@@ -110,14 +115,14 @@ typedef struct
      *
      * Finds the place where an entry is/can be stored.
      ****************************************************/ \
-    HASHMAP_NAME##Entry* _##HASHMAP_NAME##_locate_entry_holder(HASHMAP_NAME* map, const HASHMAP_KEY_TYPE* key) \
+    _##HASHMAP_NAME##BucketEntry* _##HASHMAP_NAME##_locate_entry_holder(HASHMAP_NAME* map, const HASHMAP_KEY_TYPE* key) \
     { \
         assert(map); \
         assert(key); \
         size_t hash = (HASHMAP_HASH_FUNC(key)) % map->_n_buckets; \
         size_t ind = hash; \
         for (int i = 0;;i++) { \
-            if (!((map->_buckets+ind)->_is_valid) || (HASHMAP_KEY_EQ_FUNC((key), ((const HASHMAP_KEY_TYPE*) &((map->_buckets+ind)->key))))) \
+            if (!((map->_buckets+ind)->_is_valid) || (HASHMAP_KEY_EQ_FUNC((key), ((const HASHMAP_KEY_TYPE*) &((map->_buckets+ind)->entry.key))))) \
                 break; \
             ind = (ind + 1) % map->_n_buckets; \
         } \
@@ -133,15 +138,15 @@ typedef struct
     void _##HASHMAP_NAME##_resize(HASHMAP_NAME* map, size_t new_size) \
     { \
         size_t old_n_buckets = map->_n_buckets; \
-        HASHMAP_NAME##Entry* old_buckets = map->_buckets; \
+        _##HASHMAP_NAME##BucketEntry* old_buckets = map->_buckets; \
         map->_n_buckets = new_size; \
-        map->_buckets = calloc(map->_n_buckets, sizeof(HASHMAP_NAME##Entry)); \
+        map->_buckets = calloc(map->_n_buckets, sizeof(_##HASHMAP_NAME##BucketEntry)); \
         assert(map->_buckets); \
         \
         for (size_t i = 0; i < old_n_buckets; i++) { \
-            HASHMAP_NAME##Entry* entry = old_buckets+i; \
+            _##HASHMAP_NAME##BucketEntry* entry = old_buckets+i; \
             if (entry->_is_valid) \
-                *(_##HASHMAP_NAME##_locate_entry_holder(map, (const HASHMAP_KEY_TYPE*) &(entry->key))) = *entry; \
+                *(_##HASHMAP_NAME##_locate_entry_holder(map, (const HASHMAP_KEY_TYPE*) &(entry->entry.key))) = *entry; \
         } \
         free(old_buckets); \
     } \
@@ -162,15 +167,15 @@ typedef struct
         if ((map->size) / (double) map->_n_buckets >= _HASHMAP_LOAD_FACTOR) \
             _##HASHMAP_NAME##_resize(map, map->_n_buckets * 2); \
         \
-        HASHMAP_NAME##Entry* entry_holder = _##HASHMAP_NAME##_locate_entry_holder(map, key); \
+        _##HASHMAP_NAME##BucketEntry* entry_holder = _##HASHMAP_NAME##_locate_entry_holder(map, key); \
         if (insert && !(entry_holder->_is_valid)) { \
             entry_holder->_is_valid = 1; \
-            entry_holder->key = (HASHMAP_KEY_TYPE) *key; \
-            memset(&(entry_holder->value), '\0', sizeof(HASHMAP_VALUE_TYPE)); \
+            entry_holder->entry.key = (HASHMAP_KEY_TYPE) *key; \
+            memset(&(entry_holder->entry.value), '\0', sizeof(HASHMAP_VALUE_TYPE)); \
             map->size++; \
         } \
         \
-        return entry_holder->_is_valid ? entry_holder : NULL; \
+        return entry_holder->_is_valid ? &(entry_holder->entry) : NULL; \
     } \
     \
     \
@@ -212,7 +217,7 @@ typedef struct
     { \
         assert(map); \
         assert(key); \
-        HASHMAP_NAME##Entry* entry_holder = _##HASHMAP_NAME##_locate_entry_holder(map, key); \
+        _##HASHMAP_NAME##BucketEntry* entry_holder = _##HASHMAP_NAME##_locate_entry_holder(map, key); \
         if (!(entry_holder->_is_valid)) \
             return; \
         entry_holder->_is_valid = 0; \
@@ -221,14 +226,48 @@ typedef struct
         /* cleanup */ \
         size_t ind = (entry_holder - map->_buckets + 1) % map->_n_buckets; \
         for (;map->_buckets[ind]._is_valid; ind = (ind + 1) % map->_n_buckets) { \
-            HASHMAP_NAME##Entry entry = map->_buckets[ind]; \
+            _##HASHMAP_NAME##BucketEntry entry = map->_buckets[ind]; \
             map->_buckets[ind]._is_valid = 0; \
-            *(_##HASHMAP_NAME##_locate_entry_holder(map, (const HASHMAP_KEY_TYPE*) &(entry.key))) = entry; \
+            *(_##HASHMAP_NAME##_locate_entry_holder(map, (const HASHMAP_KEY_TYPE*) &(entry.entry.key))) = entry; \
         } \
         if (4 * map->size / (double) map->_n_buckets < _HASHMAP_LOAD_FACTOR && !(map->_n_buckets <= _HASHMAP_MIN_BUCKET_ARRAY_SIZE)) \
             _##HASHMAP_NAME##_resize(map, map->_n_buckets / 2); \
         \
+    } \
+    \
+    \
+    typedef struct \
+    { \
+        HASHMAP_NAME##Entry* current; \
+        _##HASHMAP_NAME##BucketEntry* _buckets; \
+        size_t _n_buckets; \
+        size_t _index; \
+    } HASHMAP_NAME##Iter; \
+    \
+    \
+    HASHMAP_NAME##Iter HASHMAP_NAME##_iter(const HASHMAP_NAME* map) \
+    { \
+        assert(map != NULL); \
+        for (size_t i = 0; i < map->_n_buckets; i++) { \
+            if ((map->_buckets+i)->_is_valid) \
+                return (HASHMAP_NAME##Iter) {&(map->_buckets[i].entry), map->_buckets, map->_n_buckets, i}; \
+        } \
+        return (HASHMAP_NAME##Iter) {NULL, NULL, 0}; \
+    } \
+    \
+    \
+    void HASHMAP_NAME##Iter_inc(HASHMAP_NAME##Iter* iter) \
+    { \
+        for (size_t i = iter->_index+1; i < iter->_n_buckets; i++) { \
+            if ((iter->_buckets+i)->_is_valid) { \
+                iter->current = &(iter->_buckets[i].entry); \
+                iter->_index = i; \
+                return; \
+            } \
+        } \
+        iter->current = NULL; \
     }
+      
 
 #endif
 

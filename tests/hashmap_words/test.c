@@ -61,10 +61,8 @@ int main()
     printf("queries took: %lf s\n", stop-start);
 
     start = omp_get_wtime();
-    for (int i = 0; i < set._n_buckets; i++) {
-        if (set._buckets[i]._is_valid)
-            sum += set._buckets[i].key->chars[0]; \
-    }
+    for (SetIter it = Set_iter(&set); it.current; SetIter_inc(&it))
+            sum += it.current->key->chars[0]; \
     stop = omp_get_wtime();
     printf("iteration took: %lf s, %d\n", stop-start, sum);
 
