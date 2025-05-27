@@ -245,6 +245,26 @@ typedef struct
     } HASHMAP_NAME##Iter; \
     \
     \
+    /*********************************************************************
+     * Returns an iterator to iterate over all elements of map
+     * The order the elements are given is is completely arbitrary
+     *
+     * If the map is empty the field `current` 
+     * in the returned iterator is NULL
+     *
+     * The iterator does not own any memory, 
+     * so no free is needed after use
+     *
+     * EXAMPLE USAGE:
+     * ```
+     * HASHMAP_DEFINE(Map, int, double, ...)
+     * Map map = Map_new(0);
+     * ...
+     * for (MapIter it = Map_iter(&map); it.current; MapIter_inc(&it)) {
+     *    printf("%d: %lf\n", it.current->key, it.current->entry);
+     * }
+     * ```
+     *********************************************************************/ \
     HASHMAP_NAME##Iter HASHMAP_NAME##_iter(const HASHMAP_NAME* map) \
     { \
         assert(map != NULL); \
@@ -256,8 +276,19 @@ typedef struct
     } \
     \
     \
+    /*******************************************************
+     * Moves the iterator to the next entry in the hashmap
+     *
+     * If no more entries are found the field `current`
+     * is set to NULL
+     *
+     * see HASHMAP_NAME##_iter for example usage
+     *******************************************************/ \
     void HASHMAP_NAME##Iter_inc(HASHMAP_NAME##Iter* iter) \
     { \
+        assert(iter); \
+        if (!iter->current) \
+            return; \
         for (size_t i = iter->_index+1; i < iter->_n_buckets; i++) { \
             if ((iter->_buckets+i)->_is_valid) { \
                 iter->current = &(iter->_buckets[i].entry); \

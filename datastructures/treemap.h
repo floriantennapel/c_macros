@@ -273,6 +273,19 @@ typedef struct
      * @param key starts iterator at the element matching this key. 
      *
      * Does not own any memory, so no deallocation is needed afterwards
+     *
+     * EXAMPLE USAGE:
+     *
+     * #define CMP(a, b) (...)
+     * TREEMAP_DEFINE(Map, int, double, CMP)
+     * Map map = Map_new();
+     * ...
+     * 
+     * Map_insert(&map, 4, 3.14);
+     * int key = 4;
+     * for (MapIter it = Map_iter(&map, &key); it.current; MapIter_inc(&it))
+     *     printf("%d: %lf\n", it.current->key, it.current->value);
+     *
      **************************************************************************************/ \
     TREEMAP_NAME##Iter TREEMAP_NAME##_iter(const TREEMAP_NAME* tree, const TREEMAP_KEY_TYPE* key) \
     { \
