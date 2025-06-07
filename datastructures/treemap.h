@@ -79,7 +79,7 @@ typedef struct
      *
      * Recursively searches for (and if not present inserts) an entry int the tree
      *******************************************************************************/ \
-    _##TREEMAP_NAME##NodeEntry* _##TREEMAP##_search_helper( \
+    _##TREEMAP_NAME##NodeEntry* _##TREEMAP_NAME##_search_helper( \
         TREEMAP_NAME* map, _##TREEMAP_NAME##Node* node, const TREEMAP_KEY_TYPE* key, \
         bool insert, TREEMAP_NAME##Entry** res) \
     { \
@@ -108,7 +108,7 @@ typedef struct
                     set_res = true; \
                     (map->size)++; \
                 } else { \
-                    _##TREEMAP_NAME##NodeEntry* floater = _##TREEMAP##_search_helper( \
+                    _##TREEMAP_NAME##NodeEntry* floater = _##TREEMAP_NAME##_search_helper( \
                             map, entry->lt_child, key, insert, res \
                     ); \
                     if (!floater) \
@@ -182,7 +182,7 @@ typedef struct
         assert(map != NULL); \
         assert(key != NULL); \
         TREEMAP_NAME##Entry* res; \
-        _##TREEMAP_NAME##NodeEntry* floater = _##TREEMAP##_search_helper( \
+        _##TREEMAP_NAME##NodeEntry* floater = _##TREEMAP_NAME##_search_helper( \
                 map, map->_root, key, insert, &res \
         ); \
         if (floater) { \
