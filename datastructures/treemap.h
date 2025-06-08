@@ -12,7 +12,7 @@
 typedef struct
 {} TREEMAP_NO_VALUE;
 
-// maximum number of children
+// maximum number of children, must be less than 2^15
 #ifndef _TREEMAP_M
 #define _TREEMAP_M 32
 #endif
@@ -245,6 +245,126 @@ typedef struct
     } \
     \
     \
+    /************************************************************
+     * Remove an entry from the tree, keeping the tree balanced
+     * If the entry is not found, nothing is done
+     ************************************************************/ \
+    void TREEMAP_NAME##_remove(TREEMAP_NAME* map, const TREEMAP_KEY_TYPE* key) \
+    { \
+        assert(map != NULL); \
+        assert(key != NULL); \
+        int min_entries = (_TREEMAP_M - 1) / 2; \
+        _##TREEMAP_NAME##IterStackEntry stack[200]; \
+        int stack_size = 0; \
+        bool unbalanced = false; \
+        _##TREEMAP_NAME##Node* current_node = map->_root; \
+        for (;;) { \
+            int n = current_node->n_entries; \
+            for (int i = 0; i <= n; i++) { \
+                int cmp_res = i == n \
+                    ? -1 \
+                    : TREEMAP_KEY_CMP(key, (const TREEMAP_KEY_TYPE*)&((current_node->entries+i)->entry.key)); \
+                if (cmp_res > 0) \
+                    continue; \
+                if (cmp_res < 0 && current_node->is_leaf) \
+                    return; \
+                stack[stack_size++] = (_##TREEMAP_NAME##IterStackEntry) {current_node, i}; \
+                if (cmp_res < 0) { \
+                    current_node = (current_node->entries+i)->lt_child; \
+                    break; \
+                } \
+                if (current_node->is_leaf) { \
+                    size_t bytes_move = (n-i) * sizeof(_##TREEMAP_NAME##NodeEntry); \
+                    memmove(current_node->entries+i, current_node->entries+i+1, bytes_move); \
+                    if (--(current_node->n_entries) < min_entries) \
+                        unbalanced = true; \
+                    (map->size)--; \
+                    --stack_size; \
+                    goto rebalance_tree; \
+                } else \
+                    goto find_max_subtree; \
+            } \
+        } \
+        \
+    find_max_subtree: \
+        ; \
+        int stack_top_ind = stack[stack_size-1].node_ind; \
+        current_node = stack[stack_size-1].node; \
+        TREEMAP_NAME##Entry* entry_pos = &(current_node->entries[stack_top_ind].entry); \
+        current_node = current_node->entries[stack_top_ind].lt_child; \
+        for (;;) { \
+            if (current_node->is_leaf) { \
+                *entry_pos = current_node->entries[--(current_node->n_entries)].entry; \
+                unbalanced = current_node->n_entries < min_entries; \
+                map->size--; \
+                break; \
+            } \
+            stack[stack_size++] = (_##TREEMAP_NAME##IterStackEntry) {current_node, current_node->n_entries}; \
+            current_node = current_node->entries[current_node->n_entries].lt_child; \
+        } \
+        \
+    rebalance_tree: \
+        while (unbalanced && stack_size) { \
+            current_node = stack[stack_size-1].node; \
+            int ind = stack[stack_size-1].node_ind; \
+            int n = current_node->n_entries; \
+            _##TREEMAP_NAME##Node* current_child = current_node->entries[ind].lt_child; \
+            \
+            if (ind > 0 && current_node->entries[ind-1].lt_child->n_entries > min_entries) { \
+                /* rotate, with element from left sibling */ \
+                _##TREEMAP_NAME##Node* left_child = current_node->entries[ind-1].lt_child; \
+                size_t move_bytes = (current_child->n_entries+1) * sizeof(_##TREEMAP_NAME##NodeEntry); \
+                memmove(current_child->entries+1, current_child->entries, move_bytes); \
+                current_child->entries[0].entry = current_node->entries[ind-1].entry; \
+                current_child->n_entries++; \
+                \
+                current_node->entries[ind-1].entry = left_child->entries[left_child->n_entries-1].entry; \
+                current_child->entries[0].lt_child = left_child->entries[left_child->n_entries--].lt_child; \
+            } else if (ind < n && current_node->entries[ind+1].lt_child->n_entries > min_entries) { \
+                /* rotate, with element from right sibling */ \
+                _##TREEMAP_NAME##Node* right_child = current_node->entries[ind+1].lt_child; \
+                current_child->entries[current_child->n_entries++].entry = current_node->entries[ind].entry; \
+                current_node->entries[ind].entry = right_child->entries[0].entry; \
+                current_child->entries[current_child->n_entries].lt_child = right_child->entries[0].lt_child; \
+                size_t move_bytes = right_child->n_entries-- * sizeof(_##TREEMAP_NAME##NodeEntry); \
+                memmove(right_child->entries, right_child->entries+1, move_bytes); \
+            } else if (ind > 0) { /* merge with left sibling */ \
+                _##TREEMAP_NAME##Node* left_child = current_node->entries[ind-1].lt_child; \
+                int left_n = left_child->n_entries; \
+                size_t move_bytes = (current_child->n_entries+1) * sizeof(_##TREEMAP_NAME##NodeEntry); \
+                memmove(current_child->entries+(left_n+1), current_child->entries, move_bytes); \
+                move_bytes = (left_n+1) * sizeof(_##TREEMAP_NAME##NodeEntry); \
+                memmove(current_child->entries, left_child->entries, move_bytes); \
+                current_child->entries[left_n].entry = current_node->entries[ind-1].entry; \
+                free(left_child); \
+                move_bytes = (current_node->n_entries-- - ind + 1) * sizeof(_##TREEMAP_NAME##NodeEntry); \
+                memmove(current_node->entries + (ind - 1), current_node->entries + ind, move_bytes); \
+                current_child->n_entries += left_n + 1; \
+            } else { /* merge with right sibling */ \
+                _##TREEMAP_NAME##Node* right_child = current_node->entries[ind+1].lt_child; \
+                int right_n = right_child->n_entries; \
+                int child_n = current_child->n_entries; \
+                size_t move_bytes = (right_n+1) * sizeof(_##TREEMAP_NAME##NodeEntry); \
+                memmove(right_child->entries+(child_n+1), right_child->entries, move_bytes); \
+                move_bytes = (child_n+1) * sizeof(_##TREEMAP_NAME##NodeEntry); \
+                memmove(right_child->entries, current_child->entries, move_bytes); \
+                right_child->entries[child_n].entry = current_node->entries[ind].entry; \
+                free(current_child); \
+                move_bytes = (current_node->n_entries-- - ind) * sizeof(_##TREEMAP_NAME##NodeEntry); \
+                memmove(current_node->entries + ind, current_node->entries + ind+1, move_bytes); \
+                right_child->n_entries += child_n + 1; \
+            } \
+            \
+            unbalanced = current_node->n_entries < min_entries; \
+            --stack_size; \
+        } \
+        \
+        if (map->_root->n_entries == 0) { \
+            _##TREEMAP_NAME##Node* old_root = map->_root; \
+            map->_root = old_root->entries[0].lt_child; \
+            free(old_root); \
+        } \
+    } \
     /*******************************************************
      * Do not use this function
      *
