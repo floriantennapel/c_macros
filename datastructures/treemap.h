@@ -102,7 +102,7 @@ typedef struct
                         *res = NULL; \
                         return NULL; \
                     } \
-                    new_entry.entry.key = *key; \
+                    new_entry.entry.key = (TREEMAP_KEY_TYPE) *key; \
                     new_entry.lt_child = NULL; \
                     memset(&(new_entry.entry.value), '\0', sizeof(TREEMAP_VAL_TYPE)); \
                     set_res = true; \
