@@ -16,7 +16,7 @@ Some of the datastructures have functions returning iterators, these are lightwe
 Iterators moved forwards by the `<DATASTRUCTURE_NAME>Iter_inc` function, and if available moved backwards using the `<DATASTRUCTURE_NAME>Iter_dec` function.
 
 ## Example usage 
-A simple example using hashmaps, using `string` keys, with `int` entries. All of the datastructures follow this same design pattern.
+A simple example using hashmaps, using `char[100]` keys, with `int` entries. All of the datastructures follow this same design pattern.
 
 ```C
 #include "datastructures/hashmap.h" // header only, linking is not needed
@@ -85,7 +85,7 @@ Resizeable array
 * `<VALUE_TYPE>* arr`, underlying array, index into this to access elements.
 * `size_t size`, number of elements currently stored.
 
-### Functions and macros
+### Functions
 * [`<VEC_NAME> new(size_t initial_size)`](./datastructures/vec.h#L35)
 * [`<VEC_NAME> copy(const <VEC_NAME>* copy_from)`](./datastructures/vec.h#L51)
 * [`void push(<VEC_NAME>* vec, <VALUE_TYPE> value)`](./datastructures/vec.h#L64)
