@@ -28,7 +28,7 @@
     /**************************
      * Returns a new min-heap
      **************************/ \
-    HEAP_NAME HEAP_NAME##_new() \
+    static HEAP_NAME HEAP_NAME##_new() \
     { \
         return _##HEAP_NAME##_VECTOR_TYPE##_new(0); \
     } \
@@ -36,7 +36,7 @@
      * Sifts the element at a given index down 
      * until the heap invariant is restored
      *******************************************/ \
-    void _##HEAP_NAME##_sift_down(HEAP_NAME* vector, size_t i) \
+    static void _##HEAP_NAME##_sift_down(HEAP_NAME* vector, size_t i) \
     { \
         size_t left = _HEAP_LEFT(i), right = _HEAP_RIGHT(i), min_child_ind; \
         while (left < vector->size) { \
@@ -68,7 +68,7 @@
     * @param vector Can have any vector type with 
     *   identical <VALUE_TYPE> as the heap
     ***********************************************/ \
-    void HEAP_NAME##_heapify(void* vector) \
+    static void HEAP_NAME##_heapify(void* vector) \
     { \
         _##HEAP_NAME##_VECTOR_TYPE* cast_vec = (_##HEAP_NAME##_VECTOR_TYPE*) vector; \
         size_t i = _HEAP_PARENT((cast_vec->size - 1)); \
@@ -81,7 +81,7 @@
     /************************************
      * Inserts an element into the Heap
      ************************************/ \
-    void HEAP_NAME##_push(HEAP_NAME* vector, HEAP_VAL_TYPE value) \
+    static void HEAP_NAME##_push(HEAP_NAME* vector, HEAP_VAL_TYPE value) \
     { \
         assert(vector); \
         _##HEAP_NAME##_VECTOR_TYPE##_push(vector, value); \
@@ -100,7 +100,7 @@
     /************************************************************
      * Removes the minimum element from the Heap and returns it
      ************************************************************/ \
-    HEAP_VAL_TYPE HEAP_NAME##_pop(HEAP_NAME* vector) \
+    static HEAP_VAL_TYPE HEAP_NAME##_pop(HEAP_NAME* vector) \
     { \
         assert(vector); \
         HEAP_VAL_TYPE ret = vector->arr[0]; \
@@ -112,7 +112,7 @@
     /**************************************
      * deallocates resources used by heap
      **************************************/ \
-    void HEAP_NAME##_free(HEAP_NAME* heap) \
+    static void HEAP_NAME##_free(HEAP_NAME* heap) \
     { \
         _##HEAP_NAME##_VECTOR_TYPE_free(heap); \
     }

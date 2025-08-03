@@ -98,7 +98,7 @@ typedef struct
      * @param initial_capacity should be set to the expected number of entries to avoid excessive rehashing of entries, 
      *    it can however be set to any value, as the HashMap is resized automatically as needed
      ********************************************************************************************************************/ \
-    HASHMAP_NAME HASHMAP_NAME##_new(size_t initial_capacity) \
+    static HASHMAP_NAME HASHMAP_NAME##_new(size_t initial_capacity) \
     { \
         initial_capacity /= _HASHMAP_LOAD_FACTOR; \
         size_t capacity = _HASHMAP_MIN_BUCKET_ARRAY_SIZE; \
@@ -115,7 +115,7 @@ typedef struct
      *
      * Finds the place where an entry is/can be stored.
      ****************************************************/ \
-    _##HASHMAP_NAME##BucketEntry* _##HASHMAP_NAME##_locate_entry_holder(HASHMAP_NAME* map, const HASHMAP_KEY_TYPE* key) \
+    static _##HASHMAP_NAME##BucketEntry* _##HASHMAP_NAME##_locate_entry_holder(HASHMAP_NAME* map, const HASHMAP_KEY_TYPE* key) \
     { \
         assert(map); \
         assert(key); \
@@ -135,7 +135,7 @@ typedef struct
      *
      * resizes bucket array and rehashes all entries
      *************************************************/ \
-    void _##HASHMAP_NAME##_resize(HASHMAP_NAME* map, size_t new_size) \
+    static void _##HASHMAP_NAME##_resize(HASHMAP_NAME* map, size_t new_size) \
     { \
         size_t old_n_buckets = map->_n_buckets; \
         _##HASHMAP_NAME##BucketEntry* old_buckets = map->_buckets; \
@@ -159,7 +159,7 @@ typedef struct
      *    In case of a new insertion, the value is not set and needs to be set by the caller afterwards
      *    If it is false and the entry does not exist this function will return NULL
      ***************************************************************************************************************/ \
-    HASHMAP_NAME##Entry* HASHMAP_NAME##_search(HASHMAP_NAME* map, const HASHMAP_KEY_TYPE* key, bool insert) \
+    static HASHMAP_NAME##Entry* HASHMAP_NAME##_search(HASHMAP_NAME* map, const HASHMAP_KEY_TYPE* key, bool insert) \
     { \
         assert(map); \
         assert(key); \
@@ -182,7 +182,7 @@ typedef struct
     /**********************************
      * Assigns a value to a given key
     ***********************************/ \
-    void HASHMAP_NAME##_insert(HASHMAP_NAME* map, HASHMAP_KEY_TYPE key, HASHMAP_VALUE_TYPE value) \
+    static void HASHMAP_NAME##_insert(HASHMAP_NAME* map, HASHMAP_KEY_TYPE key, HASHMAP_VALUE_TYPE value) \
     { \
         HASHMAP_NAME##_search(map, (const HASHMAP_KEY_TYPE*)&key, true)->value = value; \
     } \
@@ -191,7 +191,7 @@ typedef struct
     /*********************************************
      * Checks if a key is present in the HashMap
     **********************************************/ \
-    bool HASHMAP_NAME##_contains(const HASHMAP_NAME* map, const HASHMAP_KEY_TYPE* key) \
+    static bool HASHMAP_NAME##_contains(const HASHMAP_NAME* map, const HASHMAP_KEY_TYPE* key) \
     { \
         return HASHMAP_NAME##_search((HASHMAP_NAME*) map, key, false) != NULL; \
     } \
@@ -201,7 +201,7 @@ typedef struct
     * Deallocates all resources used by this HashMap.
     * It must not be used after this point
     ***************************************************/ \
-    void HASHMAP_NAME##_free(HASHMAP_NAME* map) \
+    static void HASHMAP_NAME##_free(HASHMAP_NAME* map) \
     { \
         free(map->_buckets); \
     } \
@@ -213,7 +213,7 @@ typedef struct
      * Other entries might be rehashed, 
      * so take care to not call this function while iterating over `_buckets`
      **************************************************************************/ \
-    void HASHMAP_NAME##_remove(HASHMAP_NAME* map, const HASHMAP_KEY_TYPE* key) \
+    static void HASHMAP_NAME##_remove(HASHMAP_NAME* map, const HASHMAP_KEY_TYPE* key) \
     { \
         assert(map); \
         assert(key); \
@@ -265,7 +265,7 @@ typedef struct
      * }
      * ```
      *********************************************************************/ \
-    HASHMAP_NAME##Iter HASHMAP_NAME##_iter(const HASHMAP_NAME* map) \
+    static HASHMAP_NAME##Iter HASHMAP_NAME##_iter(const HASHMAP_NAME* map) \
     { \
         assert(map != NULL); \
         for (size_t i = 0; i < map->_n_buckets; i++) { \
@@ -284,7 +284,7 @@ typedef struct
      *
      * see HASHMAP_NAME##_iter for example usage
      *******************************************************/ \
-    void HASHMAP_NAME##Iter_inc(HASHMAP_NAME##Iter* iter) \
+    static void HASHMAP_NAME##Iter_inc(HASHMAP_NAME##Iter* iter) \
     { \
         assert(iter); \
         if (!iter->current) \

@@ -65,7 +65,7 @@ typedef struct
      * The returned struct is the owner of the tree
      * The field `size` can be used to query the number of entries stored in the tree
      **********************************************************************************/ \
-    TREEMAP_NAME TREEMAP_NAME##_new() \
+    static TREEMAP_NAME TREEMAP_NAME##_new() \
     { \
         _##TREEMAP_NAME##Node* root = calloc(1, sizeof(_##TREEMAP_NAME##Node)); \
         assert(root != NULL); \
@@ -79,7 +79,7 @@ typedef struct
      *
      * Recursively searches for (and if not present inserts) an entry int the tree
      *******************************************************************************/ \
-    _##TREEMAP_NAME##NodeEntry* _##TREEMAP_NAME##_search_helper( \
+    static _##TREEMAP_NAME##NodeEntry* _##TREEMAP_NAME##_search_helper( \
         TREEMAP_NAME* map, _##TREEMAP_NAME##Node* node, const TREEMAP_KEY_TYPE* key, \
         bool insert, TREEMAP_NAME##Entry** res) \
     { \
@@ -177,7 +177,7 @@ typedef struct
      *    THE KEY MUST NOT BE MODIFIED
      *    If the entry was not found, and insert was false, NULL is returned
      *************************************************************************/ \
-    TREEMAP_NAME##Entry* TREEMAP_NAME##_search(TREEMAP_NAME* map, const TREEMAP_KEY_TYPE* key, bool insert) \
+    static TREEMAP_NAME##Entry* TREEMAP_NAME##_search(TREEMAP_NAME* map, const TREEMAP_KEY_TYPE* key, bool insert) \
     { \
         assert(map != NULL); \
         assert(key != NULL); \
@@ -206,7 +206,7 @@ typedef struct
      * Deallocate resources used by treemap
      * DO NOT use it after this point
      ****************************************/ \
-    void TREEMAP_NAME##_free(TREEMAP_NAME* map) \
+    static void TREEMAP_NAME##_free(TREEMAP_NAME* map) \
     { \
         assert(map); \
         _##TREEMAP_NAME##Node* stack[200]; \
@@ -226,7 +226,7 @@ typedef struct
     /*************************************
      * Check if key is contained in tree
      *************************************/ \
-    bool TREEMAP_NAME##_contains(const TREEMAP_NAME* map, const TREEMAP_KEY_TYPE* key) \
+    static bool TREEMAP_NAME##_contains(const TREEMAP_NAME* map, const TREEMAP_KEY_TYPE* key) \
     { \
         assert(map != NULL); \
         assert(key != NULL); \
@@ -238,7 +238,7 @@ typedef struct
      * Set the value at the given key
      * If the key is not present in the tree, a new entry is inserted
      ******************************************************************/ \
-    void TREEMAP_NAME##_insert(TREEMAP_NAME* map, TREEMAP_KEY_TYPE key, TREEMAP_VAL_TYPE value) \
+    static void TREEMAP_NAME##_insert(TREEMAP_NAME* map, TREEMAP_KEY_TYPE key, TREEMAP_VAL_TYPE value) \
     { \
         assert(map != NULL); \
         TREEMAP_NAME##_search(map,(const TREEMAP_KEY_TYPE*)&key, true)->value = value; \
@@ -249,7 +249,7 @@ typedef struct
      * Remove an entry from the tree, keeping the tree balanced
      * If the entry is not found, nothing is done
      ************************************************************/ \
-    void TREEMAP_NAME##_remove(TREEMAP_NAME* map, const TREEMAP_KEY_TYPE* key) \
+    static void TREEMAP_NAME##_remove(TREEMAP_NAME* map, const TREEMAP_KEY_TYPE* key) \
     { \
         assert(map != NULL); \
         assert(key != NULL); \
@@ -371,7 +371,7 @@ typedef struct
      * Walks an iterator to the minimum or maximum element 
      * of the subtree rooted at the current element
      *******************************************************/ \
-    void _##TREEMAP_NAME##Iter_walk_subtree_minmax(TREEMAP_NAME##Iter* iter, bool find_min) \
+    static void _##TREEMAP_NAME##Iter_walk_subtree_minmax(TREEMAP_NAME##Iter* iter, bool find_min) \
     { \
         _##TREEMAP_NAME##IterStackEntry se = iter->_callstack[iter->_stack_size-1]; \
         _##TREEMAP_NAME##Node* node = se.node; \
@@ -407,7 +407,7 @@ typedef struct
      *     printf("%d: %lf\n", it.current->key, it.current->value);
      *
      **************************************************************************************/ \
-    TREEMAP_NAME##Iter TREEMAP_NAME##_iter(const TREEMAP_NAME* tree, const TREEMAP_KEY_TYPE* key) \
+    static TREEMAP_NAME##Iter TREEMAP_NAME##_iter(const TREEMAP_NAME* tree, const TREEMAP_KEY_TYPE* key) \
     { \
         assert(tree != NULL); \
         assert(key != NULL); \
@@ -450,7 +450,7 @@ typedef struct
     /*******************************************************************
      * Returns an iterator starting at the minimum element in the map
      *******************************************************************/ \
-    TREEMAP_NAME##Iter TREEMAP_NAME##_min_iter(const TREEMAP_NAME* map) \
+    static TREEMAP_NAME##Iter TREEMAP_NAME##_min_iter(const TREEMAP_NAME* map) \
     { \
         assert(map != NULL); \
         TREEMAP_NAME##Iter ret; \
@@ -468,7 +468,7 @@ typedef struct
     /*******************************************************************
      * Returns an iterator starting at the maximum element in the map
      *******************************************************************/ \
-    TREEMAP_NAME##Iter TREEMAP_NAME##_max_iter(const TREEMAP_NAME* map) \
+    static TREEMAP_NAME##Iter TREEMAP_NAME##_max_iter(const TREEMAP_NAME* map) \
     { \
         assert(map != NULL); \
         TREEMAP_NAME##Iter ret; \
@@ -489,7 +489,7 @@ typedef struct
      * Returns an iterator starting at the 
      * maximum element less than or equal to key
      *********************************************/ \
-    TREEMAP_NAME##Iter TREEMAP_NAME##_floor_iter(const TREEMAP_NAME* map, const TREEMAP_KEY_TYPE* key) \
+    static TREEMAP_NAME##Iter TREEMAP_NAME##_floor_iter(const TREEMAP_NAME* map, const TREEMAP_KEY_TYPE* key) \
     { \
         assert(map != NULL); \
         assert(key != NULL); \
@@ -534,7 +534,7 @@ typedef struct
      * Returns an iterator starting at the 
      * minimum element greater than or equal to key
      ************************************************/ \
-    TREEMAP_NAME##Iter TREEMAP_NAME##_ceil_iter(const TREEMAP_NAME* map, const TREEMAP_KEY_TYPE* key) \
+    static TREEMAP_NAME##Iter TREEMAP_NAME##_ceil_iter(const TREEMAP_NAME* map, const TREEMAP_KEY_TYPE* key) \
     { \
         assert(map != NULL); \
         assert(key != NULL); \
@@ -581,7 +581,7 @@ typedef struct
      * sets the field current to be the next element in the tree,
      * if there are no more elements, current is set to NULL
      **************************************************************/ \
-    void TREEMAP_NAME##Iter_inc(TREEMAP_NAME##Iter* iter) \
+    static void TREEMAP_NAME##Iter_inc(TREEMAP_NAME##Iter* iter) \
     { \
         assert(iter != NULL); \
         if (!iter->current) \
@@ -612,7 +612,7 @@ typedef struct
      * sets the field current to be the previous element in the tree,
      * if there are no more elements, current is set to NULL
      **************************************************************/ \
-    void TREEMAP_NAME##Iter_dec(TREEMAP_NAME##Iter* iter) \
+    static void TREEMAP_NAME##Iter_dec(TREEMAP_NAME##Iter* iter) \
     { \
         assert(iter != NULL); \
         if (!iter->current) \

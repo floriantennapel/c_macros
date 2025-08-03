@@ -26,7 +26,7 @@
     * @param initial_capacity should be set to expected number of entries, 
     *   but any value is fine, as it will resize as needed
     ************************************************************************/ \
-    QUEUE_NAME QUEUE_NAME##_new(size_t initial_capacity) \
+    static QUEUE_NAME QUEUE_NAME##_new(size_t initial_capacity) \
     { \
         size_t capacity = 1; \
         for (; capacity <= initial_capacity; capacity <<= 1); \
@@ -42,7 +42,7 @@
      *
      * Resizes underlying array if needed 
      **************************************/ \
-    void _##QUEUE_NAME##_resize(QUEUE_NAME* q, size_t new_capacity) \
+    static void _##QUEUE_NAME##_resize(QUEUE_NAME* q, size_t new_capacity) \
     { \
         QUEUE_VAL_TYPE* old_arr = q->_arr; \
         size_t old_cap = q->_capacity; \
@@ -68,7 +68,7 @@
     /***********************************************************************************
     * Pushes a value to the back of the queue, the value is copied and stored in place
     ************************************************************************************/ \
-    void QUEUE_NAME##_push(QUEUE_NAME* q, QUEUE_VAL_TYPE value) \
+    static void QUEUE_NAME##_push(QUEUE_NAME* q, QUEUE_VAL_TYPE value) \
     { \
         assert(q); \
         if (q->size == q->_capacity) \
@@ -82,7 +82,7 @@
     /*********************************************************************************************
     * Deallocates and removes the front of the queue and returns the value that was stored there
     **********************************************************************************************/ \
-    QUEUE_VAL_TYPE QUEUE_NAME##_pop(QUEUE_NAME* q) \
+    static QUEUE_VAL_TYPE QUEUE_NAME##_pop(QUEUE_NAME* q) \
     { \
         assert(q); \
         assert((q->size)--); \

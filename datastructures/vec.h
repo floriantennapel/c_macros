@@ -32,7 +32,7 @@
     *
     * @param initial_size initial size of the Vec
     ***********************************************/ \
-    VEC_NAME VEC_NAME##_new(size_t initial_size) \
+    static VEC_NAME VEC_NAME##_new(size_t initial_size) \
     { \
         assert(initial_size >= 0); \
         size_t initial_capacity = 1; \
@@ -48,7 +48,7 @@
      *
      * @param copy_from valid initialized vector
      **************************************************/ \
-    VEC_NAME VEC_NAME##_copy(const VEC_NAME* copy_from) \
+    static VEC_NAME VEC_NAME##_copy(const VEC_NAME* copy_from) \
     { \
         assert(copy_from); \
         VEC_VAL_TYPE* mem = calloc(copy_from->_arr_cap, sizeof(VEC_VAL_TYPE)); \
@@ -61,7 +61,7 @@
     *
     * If the underlying array needs resizing, it is doubled in size using realloc.
     **********************************************************************************/ \
-    void VEC_NAME##_push(VEC_NAME* vec, VEC_VAL_TYPE value) \
+    static void VEC_NAME##_push(VEC_NAME* vec, VEC_VAL_TYPE value) \
     { \
         assert(vec); \
         if (vec->size == vec->_arr_cap) { \
@@ -78,7 +78,7 @@
     *
     * The underlying array is resized using realloc if it is more than four times the size of the stored elements
     ***************************************************************************************************************/ \
-    VEC_VAL_TYPE VEC_NAME##_pop(VEC_NAME* vec) \
+    static VEC_VAL_TYPE VEC_NAME##_pop(VEC_NAME* vec) \
     { \
         assert(vec); \
         assert(vec->size); \
@@ -97,7 +97,7 @@
     *
     * Do not use after this point
     *************************************/ \
-    void VEC_NAME##_free(VEC_NAME* vec) \
+    static void VEC_NAME##_free(VEC_NAME* vec) \
     { \
         assert(vec); \
         free(vec->arr); \
@@ -109,7 +109,7 @@
     *
     * Safe to use after this
     **********************************/ \
-    void VEC_NAME##_clear(VEC_NAME* vec) \
+    static void VEC_NAME##_clear(VEC_NAME* vec) \
     { \
         assert(vec); \
         vec->size = 0; \
