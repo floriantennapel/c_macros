@@ -7,18 +7,18 @@
 #include <string.h>
 
 /*****************************************************************************
-* Generates functions for a new Vec datastructure
+* Generates declarations for a new Vec datastructure
 *
-* Functions to access and set elements of the are not defined, 
+* Functions to access and set elements of the are not declared, 
 * this should be done using the underlying arr field
 *
-* Functions with linear runtime, like insertion and removal are also not defined.
+* Functions with linear runtime, like insertion and removal are also not declared.
 * Use another datastructure, or add the methods later if this is needed.
 *
-* @param VEC_NAME name of owner struct and prefix of each function defined
+* @param VEC_NAME name of owner struct and prefix of each function declared
 * @param VEC_VAL_TYPE type stored in the Vec
 ******************************************************************************/
-#define VEC_DEFINE(VEC_NAME, VEC_VAL_TYPE) \
+#define VEC_DECL(VEC_NAME, VEC_VAL_TYPE) \
     typedef struct \
     { \
         VEC_VAL_TYPE* arr; \
@@ -26,13 +26,52 @@
         size_t size; \
     } VEC_NAME; \
     \
-    \
     /**********************************************
     * Makes a new Vec filled with zeroes
-    *
-    * @param initial_size initial size of the Vec
+    * 
+    * @param initial_size initial size of the Vec 
     ***********************************************/ \
-    static VEC_NAME VEC_NAME##_new(size_t initial_size) \
+    VEC_NAME VEC_NAME##_new(size_t initial_size); \
+    \
+    /**************************************************
+     * Creates a new Vector that is a copy of another
+     *
+     * @param copy_from valid initialized vector
+     **************************************************/ \
+    VEC_NAME VEC_NAME##_copy(const VEC_NAME* copy_from); \
+    \
+    /*********************************************************************************
+    * Pushes a value to the back of the Vec, the value is copied and stored in place
+    *
+    * If the underlying array needs resizing, it is doubled in size using realloc.
+    **********************************************************************************/ \
+    void VEC_NAME##_push(VEC_NAME* vec, VEC_VAL_TYPE value); \
+    \
+    /**************************************************************************************************************
+    * Removes the last element of the Vec and returns the value that was stored there
+    *
+    * The underlying array is resized using realloc if it is more than four times the size of the stored elements
+    ***************************************************************************************************************/ \
+    VEC_VAL_TYPE VEC_NAME##_pop(VEC_NAME* vec); \
+    \
+    /************************************
+    * Deallocates memory used by vector
+    *
+    * Do not use after this point
+    *************************************/ \
+    void VEC_NAME##_free(VEC_NAME* vec); \
+    \
+    /*********************************
+    * Removes all elements in vector
+    *
+    * Safe to use after this
+    **********************************/ \
+    void VEC_NAME##_clear(VEC_NAME* vec); \
+
+
+/* Implementation code for the Vec */
+#define VEC_IMPL(VEC_NAME, VEC_VAL_TYPE) \
+    VEC_NAME VEC_NAME##_new(size_t initial_size) \
     { \
         assert(initial_size >= 0); \
         size_t initial_capacity = 1; \
@@ -42,13 +81,7 @@
         return (VEC_NAME) {mem, initial_capacity, initial_size}; \
     } \
     \
-    \
-    /**************************************************
-     * Creates a new Vector that is a copy of another
-     *
-     * @param copy_from valid initialized vector
-     **************************************************/ \
-    static VEC_NAME VEC_NAME##_copy(const VEC_NAME* copy_from) \
+    VEC_NAME VEC_NAME##_copy(const VEC_NAME* copy_from) \
     { \
         assert(copy_from); \
         VEC_VAL_TYPE* mem = calloc(copy_from->_arr_cap, sizeof(VEC_VAL_TYPE)); \
@@ -56,12 +89,8 @@
         memcpy(mem, copy_from->arr, copy_from->size * sizeof(VEC_VAL_TYPE)); \
         return (VEC_NAME) {mem, copy_from->_arr_cap, copy_from->size}; \
     } \
-    /*********************************************************************************
-    * Pushes a value to the back of the Vec, the value is copied and stored in place
-    *
-    * If the underlying array needs resizing, it is doubled in size using realloc.
-    **********************************************************************************/ \
-    static void VEC_NAME##_push(VEC_NAME* vec, VEC_VAL_TYPE value) \
+    \
+    void VEC_NAME##_push(VEC_NAME* vec, VEC_VAL_TYPE value) \
     { \
         assert(vec); \
         if (vec->size == vec->_arr_cap) { \
@@ -72,13 +101,7 @@
         vec->arr[(vec->size)++] = value; \
     } \
     \
-    \
-    /**************************************************************************************************************
-    * Removes the last element of the Vec and returns the value that was stored there
-    *
-    * The underlying array is resized using realloc if it is more than four times the size of the stored elements
-    ***************************************************************************************************************/ \
-    static VEC_VAL_TYPE VEC_NAME##_pop(VEC_NAME* vec) \
+    VEC_VAL_TYPE VEC_NAME##_pop(VEC_NAME* vec) \
     { \
         assert(vec); \
         assert(vec->size); \
@@ -91,25 +114,13 @@
         return ret; \
     } \
     \
-    \
-    /************************************
-    * Deallocates memory used by vector
-    *
-    * Do not use after this point
-    *************************************/ \
-    static void VEC_NAME##_free(VEC_NAME* vec) \
+    void VEC_NAME##_free(VEC_NAME* vec) \
     { \
         assert(vec); \
         free(vec->arr); \
     } \
     \
-    \
-    /*********************************
-    * Removes all elements in vector
-    *
-    * Safe to use after this
-    **********************************/ \
-    static void VEC_NAME##_clear(VEC_NAME* vec) \
+    void VEC_NAME##_clear(VEC_NAME* vec) \
     { \
         assert(vec); \
         vec->size = 0; \
